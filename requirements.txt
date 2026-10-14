@@ -1,0 +1,8 @@
+# Full pinned environment used to produce the committed results (Python 3.11.17).
+-r requirements-ci.txt
+jupyter==1.1.1
+nbconvert==7.17.2
+nbformat==5.11.1
+ipykernel==7.4.0
+markdown==3.11.1
+weasyprint==70.0

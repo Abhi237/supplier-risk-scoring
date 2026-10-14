@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "supplier-risk"
+version = "1.0.0"
+description = "Supplier reliability & procurement risk scoring on Olist Brazilian E-Commerce (sellers as supplier proxies)"
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+license = { text = "MIT" }
+dependencies = [
+  "duckdb", "pandas", "pyarrow", "numpy", "scikit-learn",
+  "matplotlib", "pyyaml", "click", "joblib", "scipy",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff", "jupyter", "nbconvert", "ipykernel"]
+app = ["streamlit", "plotly"]
+report = ["markdown", "weasyprint"]
+
+[project.scripts]
+supplier-risk = "supplier_risk.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+extend-exclude = ["notebooks"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "B", "UP"]
+ignore = ["B008", "B905"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/build_memo.py" = ["E501"]
+"scripts/build_readme.py" = ["E501"]
+"scripts/make_notebooks.py" = ["E501"]
+"app/views/*.py" = ["E501"]

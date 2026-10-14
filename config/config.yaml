@@ -1,0 +1,76 @@
+# Central parameters for the supplier reliability & procurement risk pipeline.
+# Olist SELLERS are treated as proxies for suppliers — labelled clearly in all outputs.
+paths:
+  raw_dir: data/raw
+  interim_dir: data/interim
+  duckdb: data/processed/olist.duckdb
+  artifacts: artifacts
+  figures: docs/figures
+
+data:
+  # Public GitHub mirror of the Olist Brazilian E-Commerce CSVs (Kaggle needs login).
+  # Source of truth: https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce (CC BY-NC-SA 4.0)
+  mirror_base: https://raw.githubusercontent.com/Kaaykun/OlistAnalysis/master/data/csv
+  files:
+    - olist_orders_dataset.csv
+    - olist_order_items_dataset.csv
+    - olist_sellers_dataset.csv
+    - olist_customers_dataset.csv
+    - olist_order_reviews_dataset.csv
+    - olist_products_dataset.csv
+    - olist_order_payments_dataset.csv
+    - product_category_name_translation.csv
+  expected_rows:
+    orders: 99441
+    order_items: 112650
+    sellers: 3095
+
+scoring:
+  # Out-of-time split: score sellers on earlier period, validate on next period lateness
+  score_period_end: "2018-01-01"   # features use items with purchase < this date
+  validate_period_end: "2018-09-01" # outcome window [score_period_end, validate_period_end)
+  # additional rolling back-test splits [score_end, validate_end) for robustness of the OOT result
+  backtest_splits:
+    - ["2017-07-01", "2018-01-01"]
+    - ["2017-10-01", "2018-04-01"]
+    - ["2018-01-01", "2018-09-01"]
+  min_items_for_score: 5           # sellers below this get heavy shrinkage / flagged
+  random_state: 42
+  n_bootstrap: 200
+  # Beta prior for empirical-Bayes late-rate shrinkage (weakly informative)
+  beta_prior_a: 2.0
+  beta_prior_b: 8.0                # prior mean ~20% late, matching overall Olist late rate order of magnitude
+  # Composite risk score weights (must sum to 1). Higher = more risk.
+  weights:
+    late_rate_shrunk: 0.35
+    seller_handoff_late_rate: 0.25
+    review_risk: 0.15              # 1 - (mean_review / 5)
+    cancel_rate: 0.10
+    freight_ratio: 0.10            # high freight-to-price as cost/friction signal
+    volume_uncertainty: 0.05       # 1/(1+log1p(n_items)) — small-volume uncertainty
+  weight_sensitivity:
+    # alternate weight vectors for sensitivity (each must sum ~1)
+    late_heavy: {late_rate_shrunk: 0.50, seller_handoff_late_rate: 0.20, review_risk: 0.10, cancel_rate: 0.08, freight_ratio: 0.07, volume_uncertainty: 0.05}
+    handoff_heavy: {late_rate_shrunk: 0.25, seller_handoff_late_rate: 0.40, review_risk: 0.12, cancel_rate: 0.08, freight_ratio: 0.10, volume_uncertainty: 0.05}
+    balanced_alt: {late_rate_shrunk: 0.30, seller_handoff_late_rate: 0.20, review_risk: 0.20, cancel_rate: 0.15, freight_ratio: 0.10, volume_uncertainty: 0.05}
+
+clustering:
+  features: [late_rate_shrunk, seller_handoff_late_rate, mean_review_score, freight_to_price, cancel_rate, log_gmv, median_delivery_days]
+  k_range: [3, 4, 5, 6, 7]
+  min_items: 20                    # cluster only sellers with enough volume
+  random_state: 42
+
+exposure:
+  # ALL ASSUMED — scenario / working-capital proxies, not observed P&L.
+  late_cost_pct_of_gmv: 0.05       # assumed cost of a late delivery as % of item GMV
+  freight_absorb_pct: 0.30         # assumed share of freight the platform absorbs
+  cancel_cost_pct_of_gmv: 0.10
+  sensitivity:
+    late_cost_pct_of_gmv: [0.02, 0.05, 0.10]
+    freight_absorb_pct: [0.10, 0.30, 0.50]
+  top_risk_share_to_reallocate: 0.10  # scenario: move volume from top-decile risk sellers
+  reallocation_late_rate_improvement: 0.50  # ASSUMED: reallocated volume sees 50% of peers' late rate
+
+glm:
+  # R layer covariates for logistic lateness model
+  min_category_n: 200
