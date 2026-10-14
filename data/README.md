@@ -7,27 +7,47 @@
 Attribute Olist, use **non-commercially**, and share derivatives under the same license. Derived artifacts in this
 repository (aggregated tables in `app/data/`, figures, memo) inherit these terms; the MIT license covers the code only.
 
-## Fetch
+## Fetch (primary: Kaggle; fallback: verified mirror)
 
-Kaggle requires a login, and no Kaggle API credentials are used here, so `scripts/download_data.py` pulls the original
-CSVs from a public GitHub mirror (`config.yaml: data.mirror_base`, currently
-`https://raw.githubusercontent.com/Kaaykun/OlistAnalysis/master/data/csv`) and then **verifies integrity**:
+The **primary, documented source is Kaggle** (`olistbr/brazilian-ecommerce`). `scripts/download_data.py` uses it
+whenever Kaggle API credentials are present in the environment, and otherwise falls back to a public GitHub mirror of
+the same CSVs (`config.yaml: data.mirror_base`, currently
+`https://raw.githubusercontent.com/Kaaykun/OlistAnalysis/master/data/csv`), which is what the committed results
+were built from.
 
 ```bash
-make data          # = python scripts/download_data.py
+export KAGGLE_USERNAME=<user> KAGGLE_KEY=<key>   # optional; from kaggle.com > Settings > API
+make data                                        # = python scripts/download_data.py  (--source auto)
+python scripts/download_data.py --source kaggle  # force Kaggle (fails if no credentials)
+python scripts/download_data.py --source mirror  # force the mirror
 ```
 
-| Check | Expected (documented) | Observed |
-|---|---|---|
-| `olist_orders_dataset.csv` rows | 99,441 | 99,441 |
-| `olist_order_items_dataset.csv` rows | 112,650 | 112,650 |
-| `olist_sellers_dataset.csv` rows | 3,095 | 3,095 |
+With credentials the script calls the `kaggle` CLI if installed, else the Kaggle REST endpoint
+`/api/v1/datasets/download/olistbr/brazilian-ecommerce` (HTTP basic auth). A Kaggle failure under `--source auto`
+falls back to the mirror. You can also download the zip from Kaggle by hand, unzip into `data/raw/`, and run
+`make data`: existing files are verified, not re-downloaded.
 
-The script aborts if a count differs, records row counts and SHA-256 digests in `data/raw/manifest.json` and
-`artifacts/data_manifest.json`, and converts each CSV to `data/interim/*.parquet`. If the mirror disappears, download
-the zip from Kaggle manually into `data/raw/` and re-run (the script skips files that exist; the checks still apply).
-`olist_geolocation_dataset.csv` (1M rows) and `olist_order_payments_dataset.csv` are not needed for seller scoring;
-payments are downloaded for completeness only.
+### Verification (recorded on the build that produced every number in this repo)
+
+Both paths are checked against the values recorded in `config.yaml: data.recorded`. **Row counts are a hard check on
+either path.** SHA-256 must match exactly on the mirror path; on the Kaggle path a digest mismatch is reported as a
+warning (re-packaging can change bytes such as line endings without changing content) provided the row counts match.
+The observed values, and which source was used, are written to `data/raw/manifest.json` and
+`artifacts/data_manifest.json`. To verify by hand: `sha256sum data/raw/*.csv`.
+
+| File | Rows | SHA-256 |
+|---|---:|---|
+| `olist_orders_dataset.csv` | 99,441 | `8df58ef3d2d7e9944010f7beecd9b75367f5588ec6e3c91cec19ae3345ef9ecf` |
+| `olist_order_items_dataset.csv` | 112,650 | `0bc4d068c4fe38cbb01bd90e8746e3c613fe7b4baef75fab7b0e329701c3e279` |
+| `olist_sellers_dataset.csv` | 3,095 | `1f643d2b950373b85735e7794b20986f528d7a000432e7c6f9bcbb44d0846a0e` |
+| `olist_customers_dataset.csv` | 99,441 | `983a422239e1712ded753b3bf9ecf47dc73f144d306029dcfa99e70a226883d2` |
+| `olist_order_reviews_dataset.csv` | 99,224 | `012b61c7593e34f51fa614efdf802b9c7056ce6aae5307ddb93236e7cfc797d7` |
+| `olist_products_dataset.csv` | 32,951 | `3e6569628a17fbc75fd206ee357b59e20364b9afa90f5b6cd5b4d624c58aa9cc` |
+| `olist_order_payments_dataset.csv` | 103,886 | `4f713964f2815dbbaa40b9488268c55aac3627bfce5aa96cf58d1f3616de3cc0` |
+| `product_category_name_translation.csv` | 71 | `a81f0d1f27b27e7293f761bc79e3ce8f348ee39c4b3ed3e49bde38f478586278` |
+
+The documented dataset sizes (99,441 orders, 112,650 items, 3,095 sellers) match. `olist_geolocation_dataset.csv`
+(1M rows) is not needed; payments are downloaded for completeness only.
 
 | Folder | Contents | Committed? |
 |---|---|---|

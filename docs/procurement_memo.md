@@ -5,9 +5,11 @@ purchases 2016-09-04 to 2018-09-03 (112,650 items, 3,095 sellers). Every figure
 is computed by the pipeline in this repository. **Olist sellers are used as proxies for suppliers.** Items marked
 **ASSUMED** are scenario inputs, not observed results.
 
-## 1. The question
-Which vendors create the greatest delivery-risk and working-capital exposure - and can a score built today tell us
-who will cause problems next period?
+## 1. Empirical-Bayes seller scoring to predict dispatch delays across 3,095 Olist sellers
+**Problem:** 6.8% of delivered orders arrived late; which sellers drive delivery risk and
+working-capital exposure? **Method:** SQL delivery intervals, beta-binomial shrinkage with bootstrap intervals,
+out-of-time validation vs baselines, cold-start policy, indicative archetypes, R GLM/GLMM. **Decision:** fix dispatch,
+not volume (section 6).
 
 ## 2. What the data says (observed)
 * **6.8% of 96,470 delivered orders arrived after the promised date**
@@ -44,15 +46,18 @@ who will cause problems next period?
 * The riskiest score decile had a next-period hand-off late rate of 21.0% vs
   2.9% in the safest. **No score predicts end-to-end lateness well** (AUC
   <= 0.543); it is carrier/lane/calendar driven.
+* **Cold start:** 1,249 new sellers (24.8% of next-period items) had no
+  history; policy assigns the EB prior mean and a **New / unscored** tier. Their next hand-off late rate was
+  8.7% vs a 12.7% prior (conservative for dispatch).
 
 ## 4. Who to act on
 * **69 material sellers (>=50 items) are in the High/Elevated tiers**, holding
   7.6% of GMV and 13.7% of late GMV. The
   full High tier (310 sellers) carries 6.5% of GMV but 17.5% of late GMV,
   yet its median seller has only 4 items - treat these as *unknown*, not *bad*.
-* **"Slow dispatchers" archetype:** 144 sellers, 10.5% of GMV, median hand-off late rate
+* **"Slow dispatchers" (indicative archetype):** 144 sellers, 10.5% of GMV, median hand-off late rate
   25.8% vs 4.8% for core suppliers - the priority
-  group for dispatch-SLA conversations. (Clusters are soft: silhouette 0.17.)
+  group for dispatch-SLA conversations. (Indicative only: silhouette 0.174.)
 
 ![](figures/top_risk_material_sellers.png) ![](figures/seller_archetypes.png)
 

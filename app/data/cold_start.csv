@@ -1,0 +1,4 @@
+split,n_new_sellers,new_share_next_items,new_share_next_gmv,prior_mean_handoff,new_handoff_late,new_handoff_lo95,new_handoff_hi95,scored_handoff_late,prior_inside_ci,prior_mean_late,new_late,scored_late,handoff_auc_scored_only,handoff_auc_full_coverage
+2017-07-01->2018-01-01,762,0.2633,0.3013,0.1469,0.1107,0.1044,0.1173,0.0935,False,0.0338,0.0741,0.0594,0.6482,0.6272
+2017-10-01->2018-04-01,769,0.2266,0.258,0.1285,0.1236,0.1172,0.1302,0.1061,True,0.0346,0.1194,0.1025,0.6589,0.6384
+2018-01-01->2018-09-01,1249,0.2475,0.2991,0.1266,0.0866,0.0821,0.0911,0.0887,False,0.0449,0.0641,0.0783,0.7038,0.6659

@@ -63,22 +63,20 @@ All eight page screenshots: [`docs/app_screenshots/`](docs/app_screenshots/).
 
 ---
 
-## 1. Situation & question
-A marketplace operator (standing in for a procurement team) depends on 3,095 independent sellers
-to dispatch on time. Late deliveries hurt reviews (2.27/5 when late vs 4.29 on
-time) and tie up working capital. The question:
+## 1. Situation & approach
+> **Empirical-Bayes seller scoring to predict dispatch delays across 3,095 Olist sellers**
 
-> **Which vendors create the greatest delivery-risk and working-capital exposure?**
-
-Answered with four lenses: **shrunk reliability scores** with uncertainty (who is unreliable, and how sure are we),
-**out-of-time validation** (does a score built today predict next period), **seller archetypes** (what kind of
-problem), and **exposure + scenario analysis** (how much is at stake, and what would reallocating volume achieve).
+| | |
+|---|---|
+| **Problem** | 6.8% of 96,470 delivered orders arrived late (reviews 2.27/5 when late vs 4.29 on time). Orders whose seller handed off late were late 21% of the time vs 5.4%. Which sellers (proxies for suppliers) drive delivery risk and working-capital exposure? |
+| **Method** | DuckDB SQL delivery intervals (hand-off vs shipping limit, delivery vs estimate) · beta-binomial empirical-Bayes shrinkage with Bayesian-bootstrap intervals · out-of-time validation vs raw-rate and volume baselines · cold-start policy for new sellers · k-means indicative archetypes · R logistic GLM / GLMM / negative binomial · exposure and ASSUMED reallocation scenarios. |
+| **Decision** | Fix dispatch, not volume: the shrunk hand-off rate predicts next-period hand-off lateness (item AUC 0.704); start SLA reviews with the 69 material High/Elevated sellers; back-tested reallocation (ASSUMED) avoids only 0.29% of late GMV. |
 
 ## 2. Data
 | | |
 |---|---|
-| Source | [Olist Brazilian E-Commerce](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce) (CC BY-NC-SA 4.0), fetched from a public GitHub mirror - see [data/README.md](data/README.md) |
-| Integrity | orders 99,441 · items 112,650 · sellers 3,095 - all equal to the documented counts; SHA-256 recorded |
+| Source | [Olist Brazilian E-Commerce](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce) (CC BY-NC-SA 4.0), primary source; the download script uses the Kaggle API when `KAGGLE_USERNAME`/`KAGGLE_KEY` are set and otherwise a verified GitHub mirror - see [data/README.md](data/README.md) |
+| Integrity | orders 99,441 · items 112,650 · sellers 3,095 - all equal to the documented counts; row counts + SHA-256 for all 8 files recorded in `config.yaml` and [data/README.md](data/README.md) and checked on either path |
 | Period | purchases 2016-09-04 to 2018-09-03 |
 | Grain | `fct_items`: one row per order x item (112,650); `fct_orders_delivered`: 96,470 delivered orders; `seller_summary`: 3,095 sellers; `seller_month_panel` |
 | Size | GMV BRL 13.59m, freight BRL 2.25m (16.6% of price) |
@@ -137,8 +135,9 @@ FROM fct_items f CROSS JOIN params p WHERE f.purchase_ts < p.score_end
   the EB prior as pseudo-data). Median 90% interval width: 51 score points for
   sellers with <20 items vs 24 for >=100 items. (A classical bootstrap gives
   zero width for sellers with 0 late items - wrong direction.)
-* **Archetypes:** k-means on 7 standardised features for 894 sellers with >=20 items; k in
-  [3, 4, 5, 6, 7] chosen by silhouette (GMM BIC reported alongside).
+* **Indicative archetypes:** k-means on 7 standardised features for 894 sellers with >=20 items; k in
+  [3, 4, 5, 6, 7] chosen by silhouette (GMM BIC reported alongside). Silhouette is only 0.174, so these are
+  indicative archetypes on a continuum, not separated segments.
 * **Exposure:** GMV at risk, working capital in transit, excess WC from delays (observed) and ASSUMED cost layers.
 * **Out-of-time validation** and **reallocation back-test** (below).
 
@@ -150,7 +149,7 @@ and GVIF diagnostics.
 ## 5. Validation, baselines, metrics, sensitivity
 Score sellers using only data observable before **2018-01-01**; evaluate on items purchased
 2018-01-01 -> 2018-09-01. 1,081 sellers evaluated, covering
-75% of next-period items (new sellers can't be scored). Item-level AUC = each
+75% of next-period items (the rest are new sellers - see the cold-start policy below). Item-level AUC = each
 next-period item inherits its seller's score. Next-period base rates: hand-off late 8.9%,
 late delivery 7.8%.
 
@@ -198,6 +197,25 @@ late delivery 7.8%.
 
 ![OOT deciles](docs/figures/oot_deciles.png)
 
+**Cold-start policy (new / unscored sellers).** A seller with no sales before the score date has no evidence of its
+own, so it is assigned the empirical-Bayes **prior mean** for every rate (the EB posterior with n = 0), no composite
+percentile, and the tier **New / unscored** (`src/supplier_risk/coldstart.py`). This is material: new sellers were
+22.7%-26.3% of next-period items across the three splits
+(24.8% of items and 29.9% of GMV in the main split,
+1,249 sellers). Out-of-time check of the default:
+
+| Split | New sellers | Share of next items | Prior mean hand-off | New sellers' next hand-off late [95% Jeffreys] | Scored sellers | Prior late | New sellers' next late | Hand-off AUC scored only / full coverage |
+|---|---|---|---|---|---|---|---|---|
+| 2017-07-01->2018-01-01 | 762 | 26.3% | 14.7% | 11.1% [10.4%-11.7%] | 9.3% | 3.4% | 7.4% | 0.648 / 0.627 |
+| 2017-10-01->2018-04-01 | 769 | 22.7% | 12.8% | 12.4% [11.7%-13.0%] | 10.6% | 3.5% | 11.9% | 0.659 / 0.638 |
+| 2018-01-01->2018-09-01 | 1,249 | 24.8% | 12.7% | 8.7% [8.2%-9.1%] | 8.9% | 4.5% | 6.4% | 0.704 / 0.666 |
+
+The prior is a **conservative default for dispatch** (new sellers hand off late less often than the prior in every
+split; the prior lies inside the interval in 1 of 3), but it **understates
+end-to-end lateness**, which is calendar/carrier driven rather than a seller trait. Giving all new sellers the same
+default lowers full-coverage hand-off AUC by 0.021-0.038:
+the honest cost of having no history. Operationally: review a new seller's tier once it has its own dispatch record.
+
 ## 6. Results
 * **Lateness:** 6.8% of delivered orders were late (mean 10.6
   days late); median lead time 10.2 days. 9.4% of items were
@@ -232,7 +250,7 @@ late delivery 7.8%.
 | `bbad7e518d…` | SP | baby | 85 | 22.6% | 18.3% [12.7%-24.5%] | 44.1% | 82.1 [80-85] | Slow dispatchers |
 | `6973a06f48…` | SP | computers_accessories | 115 | 14.8% | 13.0% [8.6%-17.9%] | 24.5% | 82.0 [77-84] | Cancellation-prone |
 
-* **Archetypes** (k = 4, silhouette 0.174 - soft segments):
+* **Indicative archetypes** (k = 4, silhouette 0.174 - soft segments on a continuum):
 
 | Archetype | Sellers | GMV share | Median items | Late (EB) | Hand-off late | Review | Freight/price | Cancel | Risk score |
 |---|---|---|---|---|---|---|---|---|---|
@@ -263,7 +281,7 @@ late delivery 7.8%.
 1. Make the **EB-shrunk hand-off late rate** the supplier SLA KPI (most predictive, least noisy, seller-controlled),
    reported with its credible interval.
 2. Run dispatch-SLA reviews with the **69 material High/Elevated sellers**, starting with the
-   "Slow dispatchers" archetype; use the composite score for triage context (reviews, cancellations, freight).
+   "Slow dispatchers" indicative archetype; use the composite score for triage context (reviews, cancellations, freight).
 3. Treat low-volume High-tier sellers as an **onboarding watch-list**, not as confirmed bad suppliers.
 4. Address end-to-end lateness through **carrier/lane** management (North/Northeast destinations, peak months),
    not supplier switching.
@@ -280,7 +298,7 @@ timestamps; GLM/GLMM effects are associations, not causal; data are non-commerci
 ## 8. How to run
 ```bash
 make setup          # Python 3.11 venv + pinned deps (requirements.txt) + package
-make data           # download from public mirror, verify row counts, parquet
+make data           # Kaggle API if KAGGLE_USERNAME/KAGGLE_KEY set, else verified mirror; verify rows + SHA-256; parquet
 make sql            # DuckDB model (sql/01-06)
 make train          # scoring, bootstrap, clusters, OOT validation, exposure, scenarios, figures
 make report         # R GLM/GLMM/NB + Quarto HTML, memo PDF, README, executed notebooks
@@ -289,8 +307,8 @@ make test           # ruff + pytest
 make all            # everything above in order
 make app            # Streamlit on :8501
 ```
-Requirements: Python 3.11 (pinned in `requirements.txt` / `requirements-ci.txt`), R >= 4.3 with the packages in
-[`R/README.md`](R/README.md), Quarto >= 1.4 (optional), WeasyPrint for the memo PDF. All parameters live in
+Requirements: Python 3.11 (pinned in `requirements.txt` / `requirements-ci.txt`), R >= 4.3 with the packages pinned in
+[`renv.lock`](renv.lock) (restore: `Rscript -e 'install.packages("renv"); renv::restore()'`, see [`R/README.md`](R/README.md)), Quarto >= 1.4 (optional), WeasyPrint for the memo PDF. All parameters live in
 [`config/config.yaml`](config/config.yaml); results are deterministic (seeded).
 
 **Tests** (`tests/`): schema, grain uniqueness, null keys, SQL edge cases (same-day delivery, bad clocks, missing

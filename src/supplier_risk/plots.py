@@ -130,7 +130,7 @@ def archetypes(sc: pd.DataFrame, art: Path, fig_dir: Path):
         ax[0].scatter(g.pc1, g.pc2, s=10, alpha=0.6, color=cols[i % 7], label=f"{nm} (n={len(g)})")
     ax[0].set_xlabel("PC1")
     ax[0].set_ylabel("PC2")
-    ax[0].set_title("Seller archetypes (k-means on standardised features)")
+    ax[0].set_title("Indicative seller archetypes (k-means; soft segments)")
     ax[0].legend(fontsize=7)
     z = pd.read_csv(art / "archetype_centroids_z.csv", index_col=0)
     im = ax[1].imshow(z.to_numpy(), cmap="RdBu_r", vmin=-2, vmax=2, aspect="auto")

@@ -28,6 +28,7 @@ def build() -> str:
     tier = pd.read_csv(ART / "risk_tier_summary.csv").set_index("risk_tier")
     prof = pd.read_csv(ART / "archetype_profiles.csv").set_index("archetype")
     cal = pd.read_csv(ART / "oot_shrinkage_calibration.csv").set_index("vol_band")
+    cs = pd.read_csv(ART / "cold_start.csv").iloc[-1]
     sc = pd.read_parquet(ART / "seller_scores.parquet")
     dec = pd.read_csv(ART / "oot_deciles.csv").set_index("decile")
     grid = pd.read_csv(ART / "scenario_grid.csv")
@@ -52,9 +53,11 @@ purchases {q['date_min']} to {q['date_max']} ({q['n_items']:,} items, {q['n_sell
 is computed by the pipeline in this repository. **Olist sellers are used as proxies for suppliers.** Items marked
 **ASSUMED** are scenario inputs, not observed results.
 
-## 1. The question
-Which vendors create the greatest delivery-risk and working-capital exposure - and can a score built today tell us
-who will cause problems next period?
+## 1. Empirical-Bayes seller scoring to predict dispatch delays across {q['n_sellers_active']:,} Olist sellers
+**Problem:** {q['order_late_rate']:.1%} of delivered orders arrived late; which sellers drive delivery risk and
+working-capital exposure? **Method:** SQL delivery intervals, beta-binomial shrinkage with bootstrap intervals,
+out-of-time validation vs baselines, cold-start policy, indicative archetypes, R GLM/GLMM. **Decision:** fix dispatch,
+not volume (section 6).
 
 ## 2. What the data says (observed)
 * **{q['order_late_rate']:.1%} of {q['n_delivered_orders']:,} delivered orders arrived after the promised date**
@@ -91,15 +94,18 @@ who will cause problems next period?
 * The riskiest score decile had a next-period hand-off late rate of {dec.loc[10, 'next_handoff_late_rate']:.1%} vs
   {dec.loc[1, 'next_handoff_late_rate']:.1%} in the safest. **No score predicts end-to-end lateness well** (AUC
   <= {lt.item_auc.max():.3f}); it is carrier/lane/calendar driven.
+* **Cold start:** {int(cs.n_new_sellers):,} new sellers ({cs.new_share_next_items:.1%} of next-period items) had no
+  history; policy assigns the EB prior mean and a **New / unscored** tier. Their next hand-off late rate was
+  {cs.new_handoff_late:.1%} vs a {cs.prior_mean_handoff:.1%} prior (conservative for dispatch).
 
 ## 4. Who to act on
 * **{len(watch):,} material sellers (>=50 items) are in the High/Elevated tiers**, holding
   {watch.gmv.sum() / sc.gmv.sum():.1%} of GMV and {watch.late_gmv.sum() / sc.late_gmv.sum():.1%} of late GMV. The
   full High tier ({int(hi.n_sellers)} sellers) carries {hi.gmv_share:.1%} of GMV but {hi.late_gmv_share:.1%} of late GMV,
   yet its median seller has only {t['high_tier']['median_items']:.0f} items - treat these as *unknown*, not *bad*.
-* **"Slow dispatchers" archetype:** {int(sd.n_sellers)} sellers, {sd.gmv_share:.1%} of GMV, median hand-off late rate
+* **"Slow dispatchers" (indicative archetype):** {int(sd.n_sellers)} sellers, {sd.gmv_share:.1%} of GMV, median hand-off late rate
   {sd.handoff_late:.1%} vs {prof.loc['High-volume core suppliers', 'handoff_late']:.1%} for core suppliers - the priority
-  group for dispatch-SLA conversations. (Clusters are soft: silhouette {t['clusters']['silhouette']:.2f}.)
+  group for dispatch-SLA conversations. (Indicative only: silhouette {t['clusters']['silhouette']:.3f}.)
 
 ![](figures/top_risk_material_sellers.png) ![](figures/seller_archetypes.png)
 

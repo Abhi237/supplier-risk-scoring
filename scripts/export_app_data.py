@@ -28,7 +28,8 @@ SELLER_COLS = ["seller_id", "seller_state", "top_category", "n_items", "n_orders
 OOT_COLS = ["seller_id", "risk_score", "late_rate_shrunk", "seller_handoff_late_rate", "late_rate_raw",
             "handoff_late_rate_raw", "n_items", "n_delivered", "next_gmv", "next_late_gmv", "next_n_late",
             "next_n_delivered", "next_n_handoff_late", "next_n_handoff_obs"]
-CSVS = ["oot_metrics_main.csv", "oot_backtest_metrics.csv", "oot_deciles.csv", "oot_shrinkage_calibration.csv",
+CSVS = ["cold_start.csv",
+        "oot_metrics_main.csv", "oot_backtest_metrics.csv", "oot_deciles.csv", "oot_shrinkage_calibration.csv",
         "archetype_profiles.csv", "archetype_centroids_z.csv", "cluster_selection.csv",
         "weight_sensitivity_ranking.csv", "scenario_grid.csv", "exposure_sensitivity.csv", "risk_tier_summary.csv",
         "dq_report.csv"]

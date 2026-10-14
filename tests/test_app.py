@@ -13,7 +13,7 @@ pytestmark = pytest.mark.skipif(not DATA.exists(), reason="app/data not exported
 PAGES = [("views/overview.py", "Empirical-Bayes seller scoring to predict dispatch delays"),
          ("views/data_quality.py", "Data & quality"),
          ("views/delivery.py", "Delivery performance"), ("views/scorecards.py", "Seller scorecards"),
-         ("views/validation.py", "Risk model & validation"), ("views/archetypes.py", "Seller archetypes"),
+         ("views/validation.py", "Risk model & validation"), ("views/archetypes.py", "Indicative seller archetypes"),
          ("views/exposure.py", "Exposure & scenario simulator"), ("views/methodology.py", "Methodology")]
 
 

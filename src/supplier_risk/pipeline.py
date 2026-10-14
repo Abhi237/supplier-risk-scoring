@@ -6,7 +6,7 @@ import json
 import numpy as np
 import pandas as pd
 
-from . import clustering, exposure, plots, scoring, validation
+from . import clustering, coldstart, exposure, plots, scoring, validation
 from .config import load_config, resolve
 from .db import connect, run_sql_model, set_oot_window
 
@@ -123,7 +123,8 @@ def oot_split(con, cfg, score_end, validate_end, with_scores: bool = False):
             "next_late_rate": float(d.next_n_late.sum() / d.next_n_delivered.sum()),
             "next_handoff_late_rate": float(d.next_n_handoff_late.sum() / d.next_n_handoff_obs.sum()),
             "max_delivered_ts_used": str(feat.max_delivered_ts_used.max()),
-            "prior_late": [priors["late"].a, priors["late"].b]}
+            "prior_late": [priors["late"].a, priors["late"].b],
+            "cold_start": coldstart.evaluate_cold_start(outc, comp, priors)}
     return (ev, meta, d, scores) if with_scores else (ev, meta)
 
 
@@ -189,6 +190,21 @@ def train() -> dict:
     ev_all = pd.concat(ev_all, ignore_index=True)
     s_end, v_end = sc["score_period_end"], sc["validate_period_end"]
     ev_main, meta_main, d_main, scores_main = oot_split(con, cfg, s_end, v_end, with_scores=True)
+    cs_rows = []
+    for mt in metas:
+        c = mt["cold_start"]
+        cs_rows.append({"split": f"{mt['score_end']}->{mt['validate_end']}", "n_new_sellers": c["n_new_sellers"],
+                        "new_share_next_items": c["new_share_next_items"],
+                        "new_share_next_gmv": c["new_share_next_gmv"],
+                        "prior_mean_handoff": c["handoff"]["prior_mean"], "new_handoff_late": c["handoff"]["new_rate"],
+                        "new_handoff_lo95": c["handoff"]["new_lo95"], "new_handoff_hi95": c["handoff"]["new_hi95"],
+                        "scored_handoff_late": c["handoff"]["scored_rate"],
+                        "prior_inside_ci": c["handoff"]["prior_inside_ci"],
+                        "prior_mean_late": c["late"]["prior_mean"], "new_late": c["late"]["new_rate"],
+                        "scored_late": c["late"]["scored_rate"],
+                        "handoff_auc_scored_only": c["scored_only_handoff_auc"],
+                        "handoff_auc_full_coverage": c["full_coverage_handoff_auc"]})
+    pd.DataFrame(cs_rows).round(4).to_csv(art / "cold_start.csv", index=False)
     deltas = {}
     for tgt, k, n in [("late", d_main.next_n_late, d_main.next_n_delivered),
                       ("handoff", d_main.next_n_handoff_late, d_main.next_n_handoff_obs)]:

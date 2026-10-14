@@ -187,7 +187,33 @@
    "prior_late": [
     1.4490554035755343,
     30.856707512927606
-   ]
+   ],
+   "cold_start": {
+    "n_new_sellers": 1249,
+    "n_scored_sellers": 1081,
+    "new_share_next_items": 0.24750489074571438,
+    "new_share_next_gmv": 0.299125980370053,
+    "handoff": {
+     "prior_mean": 0.12661574769242237,
+     "new_rate": 0.0865621873957986,
+     "new_lo95": 0.08214123636917697,
+     "new_hi95": 0.09114271882543183,
+     "new_items": 14995.0,
+     "scored_rate": 0.08866285414938666,
+     "prior_inside_ci": false
+    },
+    "late": {
+     "prior_mean": 0.04485439354336671,
+     "new_rate": 0.06410342286824301,
+     "new_lo95": 0.060258648328896124,
+     "new_hi95": 0.0681171881100778,
+     "new_items": 14929.0,
+     "scored_rate": 0.07830090991209324,
+     "prior_inside_ci": false
+    },
+    "full_coverage_handoff_auc": 0.6658578623949989,
+    "scored_only_handoff_auc": 0.7038369614008354
+   }
   },
   "oot_backtests": [
    {
@@ -202,7 +228,33 @@
     "prior_late": [
      1.7487032457239169,
      50.05748223584523
-    ]
+    ],
+    "cold_start": {
+     "n_new_sellers": 762,
+     "n_scored_sellers": 668,
+     "new_share_next_items": 0.2633259423503326,
+     "new_share_next_gmv": 0.3013411764263097,
+     "handoff": {
+      "prior_mean": 0.14688687244674473,
+      "new_rate": 0.11071547791254034,
+      "new_lo95": 0.10435365572973863,
+      "new_hi95": 0.1173279887756343,
+      "new_items": 8987.0,
+      "scored_rate": 0.09345794392523364,
+      "prior_inside_ci": false
+     },
+     "late": {
+      "prior_mean": 0.03375471923803472,
+      "new_rate": 0.07409902324014819,
+      "new_lo95": 0.06879742793267205,
+      "new_hi95": 0.07967734364514509,
+      "new_items": 8907.0,
+      "scored_rate": 0.05935468336142548,
+      "prior_inside_ci": false
+     },
+     "full_coverage_handoff_auc": 0.627186314103904,
+     "scored_only_handoff_auc": 0.6482150807614586
+    }
    },
    {
     "score_end": "2017-10-01",
@@ -216,7 +268,33 @@
     "prior_late": [
      1.0803141822245388,
      30.18436071541762
-    ]
+    ],
+    "cold_start": {
+     "n_new_sellers": 769,
+     "n_scored_sellers": 875,
+     "new_share_next_items": 0.226620940456188,
+     "new_share_next_gmv": 0.2580202333913301,
+     "handoff": {
+      "prior_mean": 0.12850106563613983,
+      "new_rate": 0.12359663191659984,
+      "new_lo95": 0.11724764621456944,
+      "new_hi95": 0.13016398633117818,
+      "new_items": 9976.0,
+      "scored_rate": 0.10608823529411765,
+      "prior_inside_ci": true
+     },
+     "late": {
+      "prior_mean": 0.03455382746698611,
+      "new_rate": 0.1194393662400975,
+      "new_lo95": 0.11314564640006089,
+      "new_hi95": 0.1259567808034732,
+      "new_items": 9846.0,
+      "scored_rate": 0.10252671051456802,
+      "prior_inside_ci": false
+     },
+     "full_coverage_handoff_auc": 0.638375237780691,
+     "scored_only_handoff_auc": 0.6588672312856829
+    }
    },
    {
     "score_end": "2018-01-01",
@@ -230,7 +308,33 @@
     "prior_late": [
      1.4490554035755343,
      30.856707512927606
-    ]
+    ],
+    "cold_start": {
+     "n_new_sellers": 1249,
+     "n_scored_sellers": 1081,
+     "new_share_next_items": 0.24750489074571438,
+     "new_share_next_gmv": 0.299125980370053,
+     "handoff": {
+      "prior_mean": 0.12661574769242237,
+      "new_rate": 0.0865621873957986,
+      "new_lo95": 0.08214123636917697,
+      "new_hi95": 0.09114271882543183,
+      "new_items": 14995.0,
+      "scored_rate": 0.08866285414938666,
+      "prior_inside_ci": false
+     },
+     "late": {
+      "prior_mean": 0.04485439354336671,
+      "new_rate": 0.06410342286824301,
+      "new_lo95": 0.060258648328896124,
+      "new_hi95": 0.0681171881100778,
+      "new_items": 14929.0,
+      "scored_rate": 0.07830090991209324,
+      "prior_inside_ci": false
+     },
+     "full_coverage_handoff_auc": 0.6658578623949989,
+     "scored_only_handoff_auc": 0.7038369614008354
+    }
    }
   ],
   "auc_deltas": {
@@ -408,6 +512,7 @@
    "figures": "docs/figures"
   },
   "data": {
+   "kaggle_dataset": "olistbr/brazilian-ecommerce",
    "mirror_base": "https://raw.githubusercontent.com/Kaaykun/OlistAnalysis/master/data/csv",
    "files": [
     "olist_orders_dataset.csv",
@@ -419,6 +524,40 @@
     "olist_order_payments_dataset.csv",
     "product_category_name_translation.csv"
    ],
+   "recorded": {
+    "olist_orders_dataset.csv": {
+     "rows": 99441,
+     "sha256": "8df58ef3d2d7e9944010f7beecd9b75367f5588ec6e3c91cec19ae3345ef9ecf"
+    },
+    "olist_order_items_dataset.csv": {
+     "rows": 112650,
+     "sha256": "0bc4d068c4fe38cbb01bd90e8746e3c613fe7b4baef75fab7b0e329701c3e279"
+    },
+    "olist_sellers_dataset.csv": {
+     "rows": 3095,
+     "sha256": "1f643d2b950373b85735e7794b20986f528d7a000432e7c6f9bcbb44d0846a0e"
+    },
+    "olist_customers_dataset.csv": {
+     "rows": 99441,
+     "sha256": "983a422239e1712ded753b3bf9ecf47dc73f144d306029dcfa99e70a226883d2"
+    },
+    "olist_order_reviews_dataset.csv": {
+     "rows": 99224,
+     "sha256": "012b61c7593e34f51fa614efdf802b9c7056ce6aae5307ddb93236e7cfc797d7"
+    },
+    "olist_products_dataset.csv": {
+     "rows": 32951,
+     "sha256": "3e6569628a17fbc75fd206ee357b59e20364b9afa90f5b6cd5b4d624c58aa9cc"
+    },
+    "olist_order_payments_dataset.csv": {
+     "rows": 103886,
+     "sha256": "4f713964f2815dbbaa40b9488268c55aac3627bfce5aa96cf58d1f3616de3cc0"
+    },
+    "product_category_name_translation.csv": {
+     "rows": 71,
+     "sha256": "a81f0d1f27b27e7293f761bc79e3ce8f348ee39c4b3ed3e49bde38f478586278"
+    }
+   },
    "expected_rows": {
     "orders": 99441,
     "order_items": 112650,

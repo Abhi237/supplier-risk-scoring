@@ -31,7 +31,7 @@ strip([
                 f"{q['late_rate_if_handoff_on_time']:.1%}. Goal: identify the sellers driving it (sellers are proxies for suppliers)."),
     ("METHOD", "DuckDB SQL delivery intervals (hand-off vs shipping limit, delivery vs estimate) · beta-binomial "
                "empirical-Bayes shrinkage with bootstrap intervals · out-of-time validation vs raw and volume "
-               "baselines · k-means archetypes · R logistic GLM / GLMM / negative binomial."),
+               "baselines · k-means indicative archetypes · R logistic GLM / GLMM / negative binomial."),
     ("DECISION", f"Fix dispatch, not volume: the shrunk hand-off rate predicts next-period hand-off lateness "
                  f"(AUC {ev.loc[('Seller hand-off late', 'Shrunk hand-off late rate (EB) only'), 'item_auc']:.3f}); "
                  f"start SLA reviews with {len(_watch)} material High/Elevated sellers. Back-tested reallocation "

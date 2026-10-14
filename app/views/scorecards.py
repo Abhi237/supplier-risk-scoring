@@ -1,6 +1,6 @@
 import plotly.graph_objects as go
 import streamlit as st
-from core import GREY, NAVY, RED, TIER_ORDER, brl, proxy_note, sellers, setup_page, summary
+from core import GREY, NAVY, RED, TIER_ORDER, brl, callout, csv, proxy_note, sellers, setup_page, summary
 
 s = summary()
 setup_page("Seller scorecards", "Search any seller (anonymised Olist hash) · empirical-Bayes shrunk rates with 90% "
@@ -20,6 +20,15 @@ if states:
     f = f[f.seller_state.isin(states)]
 f = f.sort_values("risk_score", ascending=False)
 st.caption(f"{len(f):,} sellers match · sorted by composite risk score (higher = riskier)")
+_pri = s["train_summary"]["priors"]
+_cs = csv("cold_start.csv").iloc[-1]
+callout(f"<b>Cold-start policy: New / unscored tier.</b> A seller with no sales before the score date gets the "
+        f"empirical-Bayes prior mean for every rate (late {_pri['late'][2]:.1%}, hand-off late {_pri['handoff'][2]:.1%}, "
+        f"cancellation {_pri['cancel'][2]:.1%} on the full period), no composite percentile, and the tier "
+        f"<b>New / unscored</b> until it has its own history. Out-of-time ({_cs.split}) such sellers were "
+        f"{int(_cs.n_new_sellers):,} sellers and <b>{_cs.new_share_next_items:.1%} of next-period items</b>; their "
+        f"hand-off late rate was {_cs.new_handoff_late:.1%} vs a prior of {_cs.prior_mean_handoff:.1%} "
+        "(details on Risk model & validation). Every seller in this full-period table has history, so none is unscored here.")
 st.dataframe(f[["risk_rank", "seller_id", "seller_state", "top_category", "n_items", "gmv", "late_rate_raw",
                 "late_rate_shrunk", "seller_handoff_late_rate", "mean_review_score", "risk_score", "risk_score_lo90",
                 "risk_score_hi90", "risk_tier", "archetype"]].head(500),
