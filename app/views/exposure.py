@@ -3,10 +3,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 from core import (
-    GREEN,
     NAVY,
     ORANGE,
     RED,
+    SEQ,
     assumed_banner,
     brl,
     csv,
@@ -20,7 +20,7 @@ from core import (
 s = summary()
 ex, t = s["config"]["exposure"], s["train_summary"]
 setup_page("Exposure & scenario simulator", "Working-capital and cost exposure by seller, and a back-tested volume "
-           "reallocation scenario")
+           "reallocation scenario", section="exposure & scenarios")
 proxy_note()
 assumed_banner("Olist has no procurement cost data. Late-delivery cost, freight absorption, cancellation cost, the "
                "share of volume moved and how much of the reliability gap the receiving sellers actually close are "
@@ -108,7 +108,7 @@ piv = gg.pivot(index="top_share", columns="realloc_frac", values="late_gmv_reduc
 piv.index = [f"top {x:.0%}" for x in piv.index]
 piv.columns = [f"{x:.0%} moved" for x in piv.columns]
 fig = px.imshow(piv,
-                text_auto=".2%", color_continuous_scale=[[0, "#f3f8ef"], [1, GREEN]], aspect="auto",
+                text_auto=".2%", color_continuous_scale=SEQ, aspect="auto",
                 labels=dict(x="share moved (ASSUMED)", y="top risk share", color="reduction"))
 fig.update_layout(height=300, title="Precomputed grid: late-GMV reduction (composite ranking, gap realised = 50%)")
 st.plotly_chart(fig, width="stretch")

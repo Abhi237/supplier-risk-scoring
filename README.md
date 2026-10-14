@@ -31,6 +31,11 @@ A multipage Streamlit app (`app/streamlit_app.py`) presents the project for stak
 aggregated artifacts committed in `app/data/` (~1 MB: summaries, validation tables, aggregated lane/category tables
 and the 3,095 seller scorecards). No customer-level data, no order rows, no ML libraries at deploy time.
 
+**Design:** an operations "control tower" look - dark slate theme with teal/amber accents and a red-amber-green risk
+palette, top navigation (Story · Score · Decide), breadcrumb eyebrow + status bar on every page, traffic-light status
+tiles and a live alert list of top-risk material sellers on the executive summary, monospace numerals, and a custom
+dark Plotly template (`control_tower` in `app/core.py`).
+
 | Page | What it shows |
 |---|---|
 | Executive summary | business question, KPI cards, GMV vs late GMV by risk tier, recommendations |

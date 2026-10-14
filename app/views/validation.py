@@ -7,7 +7,7 @@ s = summary()
 t = s["train_summary"]
 m = t["oot_main"]
 setup_page("Risk model & validation", f"Out-of-time: score sellers with data before {m['score_end'][:10]}, test on "
-           f"items purchased {m['score_end'][:10]} → {m['validate_end'][:10]} · baselines: raw rates, volume-only")
+           f"items purchased {m['score_end'][:10]} → {m['validate_end'][:10]} · baselines: raw rates, volume-only", section="risk model & validation")
 proxy_note()
 ev = csv("oot_metrics_main.csv")
 target = st.radio("Next-period target", ["Seller hand-off late", "End-to-end late delivery"], horizontal=True)

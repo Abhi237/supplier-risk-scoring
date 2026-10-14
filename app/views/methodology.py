@@ -1,9 +1,9 @@
 import streamlit as st
-from core import callout, setup_page, summary
+from core import MEMO_URL, REPO_URL, callout, setup_page, summary
 
 s = summary()
 t, c = s["train_summary"], s["config"]
-setup_page("Methodology & limitations", "How the scores are built, how they were validated, and what they can't tell you")
+setup_page("Methodology & limitations", "How the scores are built, how they were validated, and what they can't tell you", section="methodology")
 callout("<b>Olist sellers are proxies for suppliers.</b> They are independent marketplace merchants shipping through "
         "Olist's carrier network, not a buyer's contracted vendors with POs, lead-time contracts or invoices. The "
         "<i>method</i> (shrunk reliability rates, point-in-time validation, exposure proxies) transfers to real "
@@ -51,3 +51,6 @@ st.markdown(f"""
 * **Observational.** GLM odds ratios are associations; a late hand-off may proxy for unobserved capacity issues.
 * **License:** Olist data is CC BY-NC-SA 4.0 (non-commercial, share-alike); derived outputs inherit those terms.
 """)
+
+st.markdown(f"[GitHub repository]({REPO_URL}) · [Procurement memo (PDF)]({MEMO_URL}) · Stack: DuckDB SQL · "
+            "empirical Bayes · scikit-learn · R (GLM, lme4, MASS) · Quarto · Streamlit")

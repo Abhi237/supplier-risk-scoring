@@ -4,7 +4,7 @@ from core import GREY, NAVY, RED, TIER_ORDER, brl, proxy_note, sellers, setup_pa
 
 s = summary()
 setup_page("Seller scorecards", "Search any seller (anonymised Olist hash) · empirical-Bayes shrunk rates with 90% "
-           "credible intervals · composite risk score with 90% Bayesian-bootstrap interval")
+           "credible intervals · composite risk score with 90% Bayesian-bootstrap interval", section="seller scorecards")
 proxy_note()
 sc = sellers()
 with st.container(border=True):

@@ -2,12 +2,12 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
-from core import GREEN, NAVY, ORANGE, RED, csv, proxy_note, setup_page, summary
+from core import GREEN, NAVY, ORANGE, RED, SEQ, SEQ_RISK, csv, proxy_note, setup_page, summary
 
 s = summary()
 q, r = s["sql_summary"], s.get("r_summary", {})
 setup_page("Delivery performance", "Order-to-delivery intervals: approval → seller hand-off (vs shipping limit) → "
-           "carrier transit → customer delivery (vs estimate)")
+           "carrier transit → customer delivery (vs estimate)", section="delivery performance")
 proxy_note()
 c = st.columns(4)
 c[0].metric("Median purchase → delivery", f"{q['order_median_delivery_days']:.1f} days")
@@ -20,7 +20,7 @@ pm = csv("platform_month.csv")
 pm["purchase_month"] = pd.to_datetime(pm.purchase_month)
 pm = pm[(pm.purchase_month >= "2017-01-01") & (pm.purchase_month < "2018-09-01")]
 fig = go.Figure()
-fig.add_bar(x=pm.purchase_month, y=pm.n_items, name="items", marker_color="#d6e2ef", yaxis="y2")
+fig.add_bar(x=pm.purchase_month, y=pm.n_items, name="items", marker_color="#24324f", yaxis="y2")
 fig.add_scatter(x=pm.purchase_month, y=pm.late_rate, name="late vs estimate", line=dict(color=RED, width=3))
 fig.add_scatter(x=pm.purchase_month, y=pm.handoff_late_rate, name="seller hand-off late", line=dict(color=NAVY, width=3))
 fig.update_layout(title="Monthly lateness by purchase month", height=400, yaxis=dict(tickformat=".0%", title="rate"),
@@ -55,14 +55,14 @@ st.subheader("By customer state and category")
 c1, c2 = st.columns(2)
 with c1:
     cs = csv("customer_state.csv").sort_values("late_rate", ascending=False)
-    fig = px.bar(cs, x="customer_state", y="late_rate", color="median_days", color_continuous_scale="Reds",
+    fig = px.bar(cs, x="customer_state", y="late_rate", color="median_days", color_continuous_scale=SEQ_RISK,
                  labels={"customer_state": "customer state", "late_rate": "late rate", "median_days": "median days"})
     fig.update_layout(height=360, yaxis_tickformat=".0%", title="Late rate by destination state")
     st.plotly_chart(fig, width="stretch")
 with c2:
     cat = csv("category.csv").sort_values("late_rate", ascending=False).head(20)
     fig = px.bar(cat, y="category", x="late_rate", orientation="h", color="freight_to_price",
-                 color_continuous_scale="Blues", labels={"late_rate": "late rate", "category": ""})
+                 color_continuous_scale=SEQ, labels={"late_rate": "late rate", "category": ""})
     fig.update_layout(height=360, xaxis_tickformat=".0%", title="Top-20 categories by late rate (n >= 300)")
     st.plotly_chart(fig, width="stretch")
 
@@ -72,7 +72,7 @@ if r:
     orr = orr[~orr.term.str.match(r"^(month|year|\(Intercept\))")]
     fig = go.Figure(go.Scatter(x=orr.estimate, y=orr.term, mode="markers", marker=dict(color=NAVY, size=9),
                                error_x=dict(type="data", symmetric=False, array=orr["conf.high"] - orr.estimate,
-                                            arrayminus=orr.estimate - orr["conf.low"], color="#9aa8b8")))
+                                            arrayminus=orr.estimate - orr["conf.low"], color="#9fb0c8")))
     fig.add_vline(x=1, line_dash="dash", line_color=RED)
     fig.update_layout(xaxis_type="log", height=560, title="Logistic GLM odds ratios for late delivery (95% CI)",
                       xaxis_title="odds ratio (log)")

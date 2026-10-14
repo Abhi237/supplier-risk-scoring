@@ -5,7 +5,7 @@ from core import NAVY, csv, proxy_note, setup_page, summary
 s = summary()
 q = s["sql_summary"]
 setup_page("Data & quality", "Olist Brazilian E-Commerce public dataset (CC BY-NC-SA 4.0) · integrity-checked "
-           "against documented row counts · numbered DuckDB SQL model")
+           "against documented row counts · numbered DuckDB SQL model", section="data & quality")
 proxy_note()
 c = st.columns(4)
 c[0].metric("Orders", f"{q['dq']['orders_rows']:,}", "matches documented 99,441", delta_color="off")
@@ -15,7 +15,7 @@ c[3].metric("Period (purchases)", f"{q['date_min'][:7]} → {q['date_max'][:7]}"
 
 st.subheader("Pipeline")
 st.graphviz_chart("""
-digraph { rankdir=LR; node [shape=box, style="rounded,filled", fillcolor="#eef4fb", color="#1f4e79", fontname=Helvetica];
+digraph { rankdir=LR; bgcolor="transparent"; edge [color="#9fb0c8"]; node [shape=box, style="rounded,filled", fillcolor="#16213a", color="#2dd4bf", fontcolor="#e6edf7", fontname=Helvetica];
  raw [label="Olist CSVs\\n(public mirror,\\nrow counts + SHA-256)"]; stg [label="01 staging\\n(typed, reviews dedup)"];
  dq [label="02 data-quality\\nchecks"]; fct [label="03 item fact +\\norder intervals"]; ss [label="04 seller summary"];
  pm [label="05 seller-month panel\\n(window functions)"]; oot [label="06 point-in-time\\nfeatures + outcomes"];

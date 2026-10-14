@@ -1,11 +1,11 @@
 import plotly.express as px
 import streamlit as st
-from core import COLORWAY, brl, csv, proxy_note, sellers, setup_page, summary
+from core import COLORWAY, DIVERGE, brl, csv, proxy_note, sellers, setup_page, summary
 
 s = summary()
 cl = s["train_summary"]["clusters"]
 setup_page("Seller archetypes", f"k-means on 7 standardised reliability features · k = {cl['k']} chosen by silhouette "
-           f"({cl['silhouette']:.3f}) · {cl['n_clustered']:,} sellers with >= {s['config']['clustering']['min_items']} items")
+           f"({cl['silhouette']:.3f}) · {cl['n_clustered']:,} sellers with >= {s['config']['clustering']['min_items']} items", section="seller archetypes")
 proxy_note()
 prof = csv("archetype_profiles.csv")
 cols = st.columns(len(prof))
@@ -21,7 +21,7 @@ with c1:
     st.plotly_chart(fig, width="stretch")
 with c2:
     z = csv("archetype_centroids_z.csv").set_index("Unnamed: 0")
-    fig = px.imshow(z, color_continuous_scale="RdBu_r", zmin=-2, zmax=2, text_auto=".1f", aspect="auto",
+    fig = px.imshow(z, color_continuous_scale=DIVERGE, zmin=-2, zmax=2, text_auto=".1f", aspect="auto",
                     labels=dict(color="z"))
     fig.update_layout(height=440, title="Centroid z-scores")
     st.plotly_chart(fig, width="stretch")
