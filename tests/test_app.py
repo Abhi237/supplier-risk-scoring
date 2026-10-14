@@ -10,7 +10,8 @@ APP = Path(__file__).resolve().parents[1] / "app" / "streamlit_app.py"
 DATA = APP.parent / "data" / "summary.json"
 pytestmark = pytest.mark.skipif(not DATA.exists(), reason="app/data not exported")
 
-PAGES = [("views/overview.py", "greatest delivery-risk"), ("views/data_quality.py", "Data & quality"),
+PAGES = [("views/overview.py", "Empirical-Bayes seller scoring to predict dispatch delays"),
+         ("views/data_quality.py", "Data & quality"),
          ("views/delivery.py", "Delivery performance"), ("views/scorecards.py", "Seller scorecards"),
          ("views/validation.py", "Risk model & validation"), ("views/archetypes.py", "Seller archetypes"),
          ("views/exposure.py", "Exposure & scenario simulator"), ("views/methodology.py", "Methodology")]

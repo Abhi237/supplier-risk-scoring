@@ -11,7 +11,8 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import core  # noqa: E402,F401  (registers the control-tower Plotly template)
 
-st.set_page_config(page_title="Supplier Risk | Procurement Reliability Analytics", page_icon="🛰️", layout="wide",
+st.set_page_config(page_title="Supplier Risk | Procurement Reliability Analytics", page_icon=":material/cell_tower:",
+                   layout="wide",
                    initial_sidebar_state="collapsed")
 
 V = Path(__file__).resolve().parent / "views"

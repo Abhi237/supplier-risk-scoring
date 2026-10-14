@@ -58,7 +58,7 @@ with c2:
     fig.update_layout(height=360, title="Rolling back-tests (3 splits)", legend=dict(y=-0.45))
     st.plotly_chart(fig, width="stretch")
 
-st.subheader("Does shrinkage help small sellers?")
+st.subheader("Shrinkage error reduction for small sellers")
 cal = csv("oot_shrinkage_calibration.csv")
 fig = px.bar(cal.melt(id_vars="vol_band", value_vars=["mae_raw", "mae_shrunk"]), x="vol_band", y="value",
              color="variable", barmode="group", color_discrete_sequence=[GREY, NAVY], text_auto=".3f",

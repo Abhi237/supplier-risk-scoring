@@ -8,23 +8,35 @@ from core import (
     TIER_COLORS,
     TIER_ORDER,
     brl,
-    callout,
     csv,
     proxy_note,
     sellers,
     setup_page,
+    strip,
     summary,
     tiles,
 )
 
 s = summary()
 q, t = s["sql_summary"], s["train_summary"]
-setup_page("Which vendors create the greatest delivery-risk and working-capital exposure?",
-           "Executive summary · sellers scored with empirical-Bayes shrinkage and validated out-of-time · every number "
-           "computed by the pipeline", section="executive summary")
-callout("<b>Mission.</b> Find the suppliers that put on-time delivery and working capital at risk, say how sure we "
-        "are about small suppliers with little history, and check whether today's score predicts <i>next period's</i> "
-        "problems better than simple rules.")
+sc = sellers()
+ev = csv("oot_metrics_main.csv").set_index(["target", "score"])
+_scn = t["scenario_base_ASSUMED"]
+_watch = sc[(sc.n_items >= 50) & sc.risk_tier.isin(["High", "Elevated"])]
+setup_page(f"Empirical-Bayes seller scoring to predict dispatch delays across {q['n_sellers_active']:,} Olist sellers",
+           "Executive summary · every number computed by the pipeline", section="executive summary")
+strip([
+    ("PROBLEM", f"{q['order_late_rate']:.1%} of {q['n_delivered_orders']:,} delivered orders arrived late. Orders whose "
+                f"seller handed off late were late {q['late_rate_if_handoff_late']:.0%} of the time vs "
+                f"{q['late_rate_if_handoff_on_time']:.1%}. Goal: identify the sellers driving it (sellers are proxies for suppliers)."),
+    ("METHOD", "DuckDB SQL delivery intervals (hand-off vs shipping limit, delivery vs estimate) · beta-binomial "
+               "empirical-Bayes shrinkage with bootstrap intervals · out-of-time validation vs raw and volume "
+               "baselines · k-means archetypes · R logistic GLM / GLMM / negative binomial."),
+    ("DECISION", f"Fix dispatch, not volume: the shrunk hand-off rate predicts next-period hand-off lateness "
+                 f"(AUC {ev.loc[('Seller hand-off late', 'Shrunk hand-off late rate (EB) only'), 'item_auc']:.3f}); "
+                 f"start SLA reviews with {len(_watch)} material High/Elevated sellers. Back-tested reallocation "
+                 f"(ASSUMED) avoids only {_scn['late_gmv_reduction_pct']:.2%} of late GMV."),
+])
 proxy_note()
 
 ev = csv("oot_metrics_main.csv").set_index(["target", "score"])

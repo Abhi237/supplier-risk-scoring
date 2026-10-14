@@ -86,6 +86,11 @@ h2, h3 {{font-family: {MONO}; font-weight: 600; font-size: 1.0rem !important; te
   color: #fde68a;}}
 .callout {{background: {PANEL}; border: 1px solid {LINE}; border-left: 4px solid {TEAL}; border-radius: 2px;
   padding: 12px 16px; color: {TEXT};}}
+.strip {{display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border: 1px solid {LINE}; margin: 4px 0 10px 0;}}
+.strip .part {{background: {PANEL}; padding: 12px 16px; border-right: 1px solid {LINE};}}
+.strip .part:last-child {{border-right: none;}}
+.strip .plab {{font-family: {MONO}; font-size: 0.7rem; letter-spacing: 0.14em; color: {TEAL}; font-weight: 700; margin-bottom: 4px;}}
+.strip .ptxt {{font-size: 0.86rem; color: {TEXT}; line-height: 1.4;}}
 .small {{font-size: 0.85rem; color: {MUTED};}}
 [data-testid="stHeader"] {{background: {BG}; border-bottom: 1px solid {LINE};}}
 </style>
@@ -114,6 +119,13 @@ def setup_page(title: str, subtitle: str | None = None, section: str = "") -> No
                 unsafe_allow_html=True)
 
 
+def strip(parts: list[tuple[str, str]]) -> None:
+    """Compact labelled strip, e.g. PROBLEM / METHOD / DECISION."""
+    html = "".join(f"<div class='part'><div class='plab'>{lab}</div><div class='ptxt'>{txt}</div></div>"
+                   for lab, txt in parts)
+    st.markdown(f"<div class='strip'>{html}</div>", unsafe_allow_html=True)
+
+
 def tiles(items: list[tuple[str, str, str, str]]) -> None:
     """Render RAG status tiles: (label, value, sub-text, status in red/amber/green/info)."""
     html = "".join(f"<div class='tile {st_}'><span class='led' style='background:{RAG[st_]}'></span>"
@@ -123,7 +135,7 @@ def tiles(items: list[tuple[str, str, str, str]]) -> None:
 
 
 def assumed_banner(text: str) -> None:
-    st.markdown(f"<div class='assumed'>▲ <b>ASSUMED INPUTS · SCENARIO ONLY.</b> {text}</div>",
+    st.markdown(f"<div class='assumed'><b>ASSUMED INPUTS · SCENARIO ONLY.</b> {text}</div>",
                 unsafe_allow_html=True)
 
 
@@ -160,7 +172,7 @@ def brl(x: float) -> str:
 
 
 def proxy_note() -> None:
-    st.caption("🔎 **Methodology note:** Olist marketplace **sellers are used as proxies for suppliers**. "
+    st.caption("**Methodology note:** Olist marketplace **sellers are used as proxies for suppliers**. "
                "They are not a buyer's contracted vendors; the method transfers, the specific vendor facts do not.")
 
 
