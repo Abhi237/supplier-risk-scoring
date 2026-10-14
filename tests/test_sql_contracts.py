@@ -42,9 +42,10 @@ def test_late_flag_only_for_delivered(con):
 
 
 def test_seller_summary_reconciles(con):
-    a = con.execute("SELECT SUM(n_items), SUM(n_late), ROUND(SUM(gmv), 2) FROM seller_summary").fetchone()
-    b = con.execute("SELECT COUNT(*), SUM(is_late::INT), ROUND(SUM(price), 2) FROM fct_items").fetchone()
-    assert a == b
+    a = con.execute("SELECT SUM(n_items), SUM(n_late), SUM(gmv) FROM seller_summary").fetchone()
+    b = con.execute("SELECT COUNT(*), SUM(is_late::INT), SUM(price)::DOUBLE FROM fct_items").fetchone()
+    assert a[:2] == b[:2]
+    assert a[2] == pytest.approx(b[2], abs=0.01)
 
 
 def test_rolling_window_bounds(con):
