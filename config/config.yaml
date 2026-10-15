@@ -1,87 +1,93 @@
-# Central parameters for the supplier reliability & procurement risk pipeline.
-# Olist SELLERS are treated as proxies for suppliers — labelled clearly in all outputs.
+# Central parameters for the vendor delivery-risk pipeline on the USAID / PEPFAR SCMS Delivery History dataset.
+# Buyer = a US government health-supply programme (USAID / PEPFAR SCMS); deliveries go to PEPFAR-supported
+# countries (mostly sub-Saharan Africa). Vendors are the real suppliers named in the dataset.
 paths:
   raw_dir: data/raw
   interim_dir: data/interim
-  duckdb: data/processed/olist.duckdb
+  duckdb: data/processed/scms.duckdb
   artifacts: artifacts
   figures: docs/figures
 
 data:
-  # PRIMARY source: Kaggle dataset olistbr/brazilian-ecommerce (CC BY-NC-SA 4.0), used when KAGGLE_USERNAME and
-  # KAGGLE_KEY are set. FALLBACK: verified public GitHub mirror of the same CSVs.
-  kaggle_dataset: olistbr/brazilian-ecommerce
-  mirror_base: https://raw.githubusercontent.com/Kaaykun/OlistAnalysis/master/data/csv
-  files:
-    - olist_orders_dataset.csv
-    - olist_order_items_dataset.csv
-    - olist_sellers_dataset.csv
-    - olist_customers_dataset.csv
-    - olist_order_reviews_dataset.csv
-    - olist_products_dataset.csv
-    - olist_order_payments_dataset.csv
-    - product_category_name_translation.csv
-  # Recorded on the verified download (rows are a hard check on either path; SHA-256 must match on the mirror path)
-  recorded:
-    olist_orders_dataset.csv: {rows: 99441, sha256: 8df58ef3d2d7e9944010f7beecd9b75367f5588ec6e3c91cec19ae3345ef9ecf}
-    olist_order_items_dataset.csv: {rows: 112650, sha256: 0bc4d068c4fe38cbb01bd90e8746e3c613fe7b4baef75fab7b0e329701c3e279}
-    olist_sellers_dataset.csv: {rows: 3095, sha256: 1f643d2b950373b85735e7794b20986f528d7a000432e7c6f9bcbb44d0846a0e}
-    olist_customers_dataset.csv: {rows: 99441, sha256: 983a422239e1712ded753b3bf9ecf47dc73f144d306029dcfa99e70a226883d2}
-    olist_order_reviews_dataset.csv: {rows: 99224, sha256: 012b61c7593e34f51fa614efdf802b9c7056ce6aae5307ddb93236e7cfc797d7}
-    olist_products_dataset.csv: {rows: 32951, sha256: 3e6569628a17fbc75fd206ee357b59e20364b9afa90f5b6cd5b4d624c58aa9cc}
-    olist_order_payments_dataset.csv: {rows: 103886, sha256: 4f713964f2815dbbaa40b9488268c55aac3627bfce5aa96cf58d1f3616de3cc0}
-    product_category_name_translation.csv: {rows: 71, sha256: a81f0d1f27b27e7293f761bc79e3ce8f348ee39c4b3ed3e49bde38f478586278}
-  expected_rows:
-    orders: 99441
-    order_items: 112650
-    sellers: 3095
+  dataset_name: "Supply Chain Shipment Pricing Data / PEPFAR SCMS Delivery History"
+  filename: SCMS_Delivery_History_Dataset.csv
+  expected_rows: 10324
+  expected_columns: 33
+  required_columns: [ID, "Project Code", "ASN/DN #", Country, "Fulfill Via", "Shipment Mode",
+                     "Scheduled Delivery Date", "Delivered to Client Date", "Delivery Recorded Date", "Product Group",
+                     Vendor, "Line Item Value", "Freight Cost (USD)", "Weight (Kilograms)", "First Line Designation"]
+  # Sources tried in order by scripts/download_data.py (first that downloads AND verifies wins).
+  sources:
+    - name: usaid_catalog
+      url: "https://data.usaid.gov/api/views/a3rc-nmtj/rows.csv?accessType=DOWNLOAD"
+      encoding: utf-8
+    - name: usaid_opengov_original
+      url: "https://www.usaid.gov/opengov/developer/datasets/SCMS_Delivery_History_Dataset_20150929.csv"
+      encoding: latin-1
+    - name: wayback_usaid_original
+      url: "https://web.archive.org/web/20180906063754id_/https://www.usaid.gov/opengov/developer/datasets/SCMS_Delivery_History_Dataset_20150929.csv"
+      encoding: latin-1
+      sha256: 9cffdb4ab8c6135b0f999c91b3a5c6e88a3c3dfc28c7c85feb9e97f986e3578a
+    - name: github_mirror_msadriaghdam
+      url: "https://raw.githubusercontent.com/MSadriAghdam/Supply-Chain-Prediction_Neural-Network-ML/main/SCMS_Delivery_History_Dataset.csv"
+      encoding: utf-8-sig
+      sha256: 918b992dd3e8d4b64d2a727b2c4ea607603d0c58f19484e73f7b78528c6a8673
+  # The Kaggle copy (divyeshardeshana/supply-chain-shipment-pricing-data) is used only when KAGGLE_USERNAME/KAGGLE_KEY
+  # are set; it was NOT used for the committed results.
+  kaggle_dataset: divyeshardeshana/supply-chain-shipment-pricing-data
+
+cleaning:
+  severe_late_days: 14        # "severe" lateness = delivered more than 14 days after the scheduled date
+  days_late_cap: 90           # days late is capped at 90 for mean-lateness metrics (cap counts are logged)
+  freight_ratio_cap: 2.0      # shipment freight is capped at 2x the shipment's line value (cap counts are logged)
+  extreme_early_days: 90      # flag only (not a cleaning change): delivered > 90 days BEFORE the scheduled date
+  internal_channel_vendor: "SCMS from RDC"   # SCMS's own regional distribution centre, not an external vendor
 
 scoring:
-  # Out-of-time split: score sellers on earlier period, validate on next period lateness
-  score_period_end: "2018-01-01"   # features use items with purchase < this date
-  validate_period_end: "2018-09-01" # outcome window [score_period_end, validate_period_end)
-  # additional rolling back-test splits [score_end, validate_end) for robustness of the OOT result
+  # Out-of-time split on SCHEDULED delivery date. Features use lines scheduled before score_end AND whose outcome was
+  # already recorded (max(delivered, recorded date) < score_end). Outcomes: lines scheduled in [score_end, validate_end).
+  # The main split was fixed from line volume (about 46% of external-vendor lines before it), before any metric was run.
+  score_period_end: "2012-01-01"
+  validate_period_end: "2016-01-01"
   backtest_splits:
-    - ["2017-07-01", "2018-01-01"]
-    - ["2017-10-01", "2018-04-01"]
-    - ["2018-01-01", "2018-09-01"]
-  min_items_for_score: 5           # sellers below this get heavy shrinkage / flagged
+    - ["2009-07-01", "2011-07-01"]
+    - ["2010-07-01", "2012-07-01"]
+    - ["2012-01-01", "2016-01-01"]
+    - ["2013-01-01", "2016-01-01"]
+  min_lines_for_score: 10         # vendors below this get the "New / unscored" tier (no composite score)
   random_state: 42
   n_bootstrap: 200
-  # Beta prior for empirical-Bayes late-rate shrinkage (weakly informative)
-  beta_prior_a: 2.0
-  beta_prior_b: 8.0                # prior mean ~20% late, matching overall Olist late rate order of magnitude
-  # Composite risk score weights (must sum to 1). Higher = more risk.
+  beta_prior_a: 1.0               # fallback prior if the marginal-likelihood fit is degenerate
+  beta_prior_b: 19.0
+  mean_days_prior_n: 30           # pseudo-lines for shrinking mean days late (ASSUMED smoothing constant)
+  # Composite risk score weights (must sum to 1). Higher = more risk. Documented a priori, not tuned.
   weights:
-    late_rate_shrunk: 0.35
-    seller_handoff_late_rate: 0.25
-    review_risk: 0.15              # 1 - (mean_review / 5)
-    cancel_rate: 0.10
-    freight_ratio: 0.10            # high freight-to-price as cost/friction signal
-    volume_uncertainty: 0.05       # 1/(1+log1p(n_items)) — small-volume uncertainty
+    late_rate_shrunk: 0.40
+    severe_late_rate_shrunk: 0.15
+    mean_days_late_shrunk: 0.15
+    freight_ratio: 0.10
+    lane_mix_risk: 0.15           # context: how hard the vendor's country / shipment-mode mix is (not vendor-controlled)
+    volume_uncertainty: 0.05
   weight_sensitivity:
-    # alternate weight vectors for sensitivity (each must sum ~1)
-    late_heavy: {late_rate_shrunk: 0.50, seller_handoff_late_rate: 0.20, review_risk: 0.10, cancel_rate: 0.08, freight_ratio: 0.07, volume_uncertainty: 0.05}
-    handoff_heavy: {late_rate_shrunk: 0.25, seller_handoff_late_rate: 0.40, review_risk: 0.12, cancel_rate: 0.08, freight_ratio: 0.10, volume_uncertainty: 0.05}
-    balanced_alt: {late_rate_shrunk: 0.30, seller_handoff_late_rate: 0.20, review_risk: 0.20, cancel_rate: 0.15, freight_ratio: 0.10, volume_uncertainty: 0.05}
+    late_heavy: {late_rate_shrunk: 0.55, severe_late_rate_shrunk: 0.10, mean_days_late_shrunk: 0.10, freight_ratio: 0.05, lane_mix_risk: 0.15, volume_uncertainty: 0.05}
+    tail_heavy: {late_rate_shrunk: 0.25, severe_late_rate_shrunk: 0.30, mean_days_late_shrunk: 0.25, freight_ratio: 0.05, lane_mix_risk: 0.10, volume_uncertainty: 0.05}
+    no_lane_context: {late_rate_shrunk: 0.45, severe_late_rate_shrunk: 0.20, mean_days_late_shrunk: 0.20, freight_ratio: 0.10, lane_mix_risk: 0.00, volume_uncertainty: 0.05}
 
 clustering:
-  features: [late_rate_shrunk, seller_handoff_late_rate, mean_review_score, freight_to_price, cancel_rate, log_gmv, median_delivery_days]
-  k_range: [3, 4, 5, 6, 7]
-  min_items: 20                    # cluster only sellers with enough volume
+  features: [late_rate_shrunk, mean_days_late_shrunk, freight_ratio, log_value, country_hhi, air_share]
+  k_range: [2, 3, 4]
+  min_lines: 20                   # cluster only vendors with enough lines
   random_state: 42
 
 exposure:
-  # ALL ASSUMED — scenario / working-capital proxies, not observed P&L.
-  late_cost_pct_of_gmv: 0.05       # assumed cost of a late delivery as % of item GMV
-  freight_absorb_pct: 0.30         # assumed share of freight the platform absorbs
-  cancel_cost_pct_of_gmv: 0.10
+  # ALL ASSUMED: scenario parameters, not observed costs. Observed quantities (value, late value, days late) are separate.
+  late_cost_pct_of_value: 0.05    # ASSUMED expediting / disruption cost as a share of the value of a line delivered late
+  carrying_rate_annual: 0.10      # ASSUMED annual cost of capital / holding cost applied to value x days late / 365
+  top_risk_share_to_reallocate: 0.20  # scenario: move volume away from the top 20% riskiest scored vendors (10% would be 2-3 vendors)
+  reallocation_late_rate_improvement: 0.50  # ASSUMED: moved volume closes 50% of the late-rate gap vs the other vendors
   sensitivity:
-    late_cost_pct_of_gmv: [0.02, 0.05, 0.10]
-    freight_absorb_pct: [0.10, 0.30, 0.50]
-  top_risk_share_to_reallocate: 0.10  # scenario: move volume from top-decile risk sellers
-  reallocation_late_rate_improvement: 0.50  # ASSUMED: reallocated volume sees 50% of peers' late rate
+    late_cost_pct_of_value: [0.02, 0.05, 0.10]
+    carrying_rate_annual: [0.05, 0.10, 0.20]
 
 glm:
-  # R layer covariates for logistic lateness model
-  min_category_n: 200
+  min_country_n: 100              # countries below this are pooled into "Other" in the R fixed-effect models

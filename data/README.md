@@ -1,77 +1,53 @@
 # Data
 
-**Source:** Olist / André Sionek (2018). *Brazilian E-Commerce Public Dataset by Olist* [Dataset]. Kaggle.
-<https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce>
+**Dataset:** USAID / PEPFAR Supply Chain Management System (SCMS) *Delivery History* (a.k.a. *Supply Chain Shipment Pricing
+Data*), file date 2015-09-29. 10,324 order-line rows x 33 columns, 7,030 shipments, 73 vendor strings, 43 destination countries,
+scheduled delivery dates 2006-05 to 2015-12.
 
-**License:** [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 (CC BY-NC-SA 4.0)](https://creativecommons.org/licenses/by-nc-sa/4.0/).
-Attribute Olist, use **non-commercially**, and share derivatives under the same license. Derived artifacts in this
-repository (aggregated tables in `app/data/`, figures, memo) inherit these terms; the MIT license covers the code only.
+**Citation:** U.S. Agency for International Development (USAID), PEPFAR Supply Chain Management System (SCMS), *Delivery History
+Dataset* (published on data.usaid.gov / usaid.gov open data; a copy is on Kaggle as
+`divyeshardeshana/supply-chain-shipment-pricing-data`).
 
-## Fetch (primary: Kaggle; fallback: verified mirror)
+**Licence: unclear.** USAID published it as open data but the copies available to this project carry no explicit licence text,
+and the Kaggle page is a third-party re-upload. For that reason the raw CSV is **never committed**: `data/raw/` is git-ignored and
+only derived vendor scorecards and aggregates are published in `app/data/` and `artifacts/`. Vendor names are as recorded in the public dataset.
 
-The **primary, documented source is Kaggle** (`olistbr/brazilian-ecommerce`). `scripts/download_data.py` uses it
-whenever Kaggle API credentials are present in the environment, and otherwise falls back to a public GitHub mirror of
-the same CSVs (`config.yaml: data.mirror_base`, currently
-`https://raw.githubusercontent.com/Kaaykun/OlistAnalysis/master/data/csv`), which is what the committed results
-were built from.
+## Fetch (no credentials needed)
 
 ```bash
-export KAGGLE_USERNAME=<user> KAGGLE_KEY=<key>   # optional; from kaggle.com > Settings > API
-make data                                        # = python scripts/download_data.py  (--source auto)
-python scripts/download_data.py --source kaggle  # force Kaggle (fails if no credentials)
-python scripts/download_data.py --source mirror  # force the mirror
+make data          # = python scripts/download_data.py
+python scripts/download_data.py --source file --file /path/to/SCMS_Delivery_History_Dataset.csv   # a copy you downloaded by hand
 ```
 
-With credentials the script calls the `kaggle` CLI if installed, else the Kaggle REST endpoint
-`/api/v1/datasets/download/olistbr/brazilian-ecommerce` (HTTP basic auth). A Kaggle failure under `--source auto`
-falls back to the mirror. You can also download the zip from Kaggle by hand, unzip into `data/raw/`, and run
-`make data`: existing files are verified, not re-downloaded.
+`scripts/download_data.py` tries, in the order of `config/config.yaml: data.sources`, and accepts the first copy that downloads
+**and** parses to the documented shape (10,324 rows, 33 columns, required columns present, unique `ID`):
 
-### Verification (recorded on the build that produced every number in this repo)
-
-Both paths are checked against the values recorded in `config.yaml: data.recorded`. **Row counts are a hard check on
-either path.** SHA-256 must match exactly on the mirror path; on the Kaggle path a digest mismatch is reported as a
-warning (re-packaging can change bytes such as line endings without changing content) provided the row counts match.
-The observed values, and which source was used, are written to `data/raw/manifest.json` and
-`artifacts/data_manifest.json`. To verify by hand: `sha256sum data/raw/*.csv`.
-
-| File | Rows | SHA-256 |
-|---|---:|---|
-| `olist_orders_dataset.csv` | 99,441 | `8df58ef3d2d7e9944010f7beecd9b75367f5588ec6e3c91cec19ae3345ef9ecf` |
-| `olist_order_items_dataset.csv` | 112,650 | `0bc4d068c4fe38cbb01bd90e8746e3c613fe7b4baef75fab7b0e329701c3e279` |
-| `olist_sellers_dataset.csv` | 3,095 | `1f643d2b950373b85735e7794b20986f528d7a000432e7c6f9bcbb44d0846a0e` |
-| `olist_customers_dataset.csv` | 99,441 | `983a422239e1712ded753b3bf9ecf47dc73f144d306029dcfa99e70a226883d2` |
-| `olist_order_reviews_dataset.csv` | 99,224 | `012b61c7593e34f51fa614efdf802b9c7056ce6aae5307ddb93236e7cfc797d7` |
-| `olist_products_dataset.csv` | 32,951 | `3e6569628a17fbc75fd206ee357b59e20364b9afa90f5b6cd5b4d624c58aa9cc` |
-| `olist_order_payments_dataset.csv` | 103,886 | `4f713964f2815dbbaa40b9488268c55aac3627bfce5aa96cf58d1f3616de3cc0` |
-| `product_category_name_translation.csv` | 71 | `a81f0d1f27b27e7293f761bc79e3ce8f348ee39c4b3ed3e49bde38f478586278` |
-
-The documented dataset sizes (99,441 orders, 112,650 items, 3,095 sellers) match. `olist_geolocation_dataset.csv`
-(1M rows) is not needed; payments are downloaded for completeness only.
-
-| Folder | Contents | Committed? |
+| # | Source | Result on the build that produced every number here |
 |---|---|---|
-| `data/raw/` | CSVs as downloaded + manifest | **No** |
-| `data/interim/` | parquet conversion | **No** |
-| `data/processed/` | DuckDB database, model tables, order-grain CSV for R | **No** |
+| 1 | `data.usaid.gov` catalogue export (`a3rc-nmtj`) | failed: SSL error (`UNEXPECTED_EOF_WHILE_READING`) |
+| 2 | `usaid.gov/opengov/developer/datasets/SCMS_Delivery_History_Dataset_20150929.csv` | failed: HTTP 403 |
+| 3 | Internet Archive snapshot of source 2 (`web.archive.org/web/20180906063754id_/...`) | **used**, SHA-256 `9cffdb4a...3578a`, 3,819,612 bytes, Latin-1 |
+| 4 | public GitHub mirror (`MSadriAghdam/Supply-Chain-Prediction_Neural-Network-ML`) | not needed; checked: identical in every column the analysis uses, two unused procurement date columns use two-digit years |
+| - | Kaggle copy | only with `KAGGLE_USERNAME` / `KAGGLE_KEY` and `--source kaggle`; not used |
 
-## Tables used
+A second Internet Archive snapshot (2020) of source 2 is identical cell for cell. The script writes the canonical UTF-8 CSV
+(`data/raw/SCMS_Delivery_History_Dataset.csv`, SHA-256 `eef7bb75...64837a44`, all values untouched), `data/raw/manifest.json`, and
+`data/interim/scms_raw.parquet` (every column kept as text; typing and cleaning happen in SQL, `sql/01_stage.sql`). If no source
+yields the documented shape, the script stops and writes nothing.
 
-| File | Grain | Used for |
+## What is and is not published
+
+| Path | Content | Committed |
 |---|---|---|
-| orders | order | status, purchase / approval / carrier / delivery / estimated timestamps |
-| order_items | order x item | seller, product, `shipping_limit_date`, price, freight |
-| sellers | seller | state, city, zip prefix |
-| customers | customer (per order) | **state only** (lane analysis) |
-| order_reviews | review | score, creation date (latest per order kept) |
-| products + category translation | product | English category, weight |
+| `data/raw/`, `data/interim/`, `data/processed/` | raw CSV, text parquet, DuckDB model, line-level parquet and R export | no (git-ignored) |
+| `artifacts/*.csv`, `*.json` | cleaning log, DQ report, validation tables, vendor scorecard extracts | yes (aggregates and vendor-level only) |
+| `app/data/` | the same plus vendor scorecards and year / country / mode aggregates (about 0.25 MB) | yes |
+| `tests/fixtures/scms_edge_cases.csv` | 14 handcrafted rows with invented vendor names to exercise the cleaning rules | yes |
 
-## Privacy guidance
+## Known data issues (counted in `artifacts/cleaning_log.csv`)
 
-* Olist IDs are already anonymised hashes and company/partner names were replaced. Do **not** attempt to
-  re-identify sellers or customers or join to external data.
-* Customer data is reduced to `customer_state` in staging; customer IDs never leave `data/processed/` and are not in
-  any committed artifact. The app contains seller-level aggregates only.
-* **Sellers are proxies for suppliers**: treat scores as analytics on marketplace merchants, not as findings about
-  any real vendor relationship. If you apply this to real supplier data, scores about identifiable vendors are
-  commercially sensitive; restrict access and document the methodology before using them in sourcing decisions.
+Delivery dates are complete and parse (0 unparseable). 6,324 of 10,324 lines (61%) have delivered date = scheduled date exactly
+(86.5% for external vendors), which may reflect back-filled scheduled dates; freight and weight are partly text values
+(included in cost, invoiced separately, or a reference to another line); 40 lines are more than 90 days late (capped for mean
+lateness only); 209 shipments have freight above 2x their value (ratio capped); 17 lines have zero value; 10 shipments carry two
+scheduled dates; one group of rows is identical except for `ID`. Only delivered lines are present, so late rates are lower bounds.

@@ -1,55 +1,55 @@
--- 01 Staging: typed, renamed copies of the raw Olist tables.
--- Inputs (views registered by supplier_risk.db): raw_orders, raw_items, raw_sellers, raw_customers,
--- raw_reviews, raw_products, raw_category_translation.  Customer data is reduced to state only.
-CREATE OR REPLACE TABLE stg_orders AS
-SELECT CAST(order_id AS VARCHAR)                              AS order_id,
-       CAST(customer_id AS VARCHAR)                           AS customer_id,
-       CAST(order_status AS VARCHAR)                          AS order_status,
-       CAST(order_purchase_timestamp AS TIMESTAMP)            AS purchase_ts,
-       CAST(order_approved_at AS TIMESTAMP)                   AS approved_ts,
-       CAST(order_delivered_carrier_date AS TIMESTAMP)        AS carrier_ts,
-       CAST(order_delivered_customer_date AS TIMESTAMP)       AS delivered_ts,
-       CAST(order_estimated_delivery_date AS TIMESTAMP)       AS estimated_ts
-FROM raw_orders;
-
-CREATE OR REPLACE TABLE stg_items AS
-SELECT CAST(order_id AS VARCHAR)                  AS order_id,
-       CAST(order_item_id AS INTEGER)             AS order_item_id,
-       CAST(product_id AS VARCHAR)                AS product_id,
-       CAST(seller_id AS VARCHAR)                 AS seller_id,
-       CAST(shipping_limit_date AS TIMESTAMP)     AS shipping_limit_ts,
-       CAST(price AS DECIMAL(12, 2))              AS price,
-       CAST(freight_value AS DECIMAL(12, 2))      AS freight_value
-FROM raw_items;
-
-CREATE OR REPLACE TABLE stg_sellers AS
-SELECT CAST(seller_id AS VARCHAR)                         AS seller_id,
-       LPAD(CAST(seller_zip_code_prefix AS VARCHAR), 5, '0') AS seller_zip_prefix,
-       CAST(seller_city AS VARCHAR)                       AS seller_city,
-       UPPER(CAST(seller_state AS VARCHAR))               AS seller_state
-FROM raw_sellers;
-
--- customers: only the geography needed for lane analysis (no personal attributes kept downstream)
-CREATE OR REPLACE TABLE stg_customers AS
-SELECT CAST(customer_id AS VARCHAR) AS customer_id, UPPER(CAST(customer_state AS VARCHAR)) AS customer_state
-FROM raw_customers;
-
-CREATE OR REPLACE TABLE stg_products AS
-SELECT CAST(p.product_id AS VARCHAR)                                        AS product_id,
-       COALESCE(CAST(t.product_category_name_english AS VARCHAR),
-                CAST(p.product_category_name AS VARCHAR), 'unknown')        AS category,
-       CAST(p.product_weight_g AS DOUBLE)                                   AS weight_g,
-       CAST(p.product_length_cm AS DOUBLE) * CAST(p.product_height_cm AS DOUBLE)
-         * CAST(p.product_width_cm AS DOUBLE)                               AS volume_cm3
-FROM raw_products p
-LEFT JOIN raw_category_translation t ON p.product_category_name = t.product_category_name;
-
--- reviews: an order can have >1 review row; keep the latest per order (ROW_NUMBER window)
-CREATE OR REPLACE TABLE stg_reviews AS
-SELECT order_id, review_score, review_created_ts FROM (
-  SELECT CAST(order_id AS VARCHAR) AS order_id,
-         CAST(review_score AS INTEGER) AS review_score,
-         CAST(review_creation_date AS TIMESTAMP) AS review_created_ts,
-         ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY review_creation_date DESC, review_id) AS rn
-  FROM raw_reviews) r
-WHERE rn = 1;
+-- 01 Staging: typed, renamed copy of the raw SCMS Delivery History table (view raw_scms; every column is text).
+-- Dataset: USAID / PEPFAR Supply Chain Management System (SCMS) delivery history, ~10.3k order-line rows.
+-- Buyer = a US government health-supply programme; deliveries go to PEPFAR-supported countries.
+-- Cleaning rules applied here (every action is counted in 02_cleaning_log.sql):
+--   * delivery dates (d-Mon-yy) parsed with TRY_STRPTIME; unparseable strings become NULL (never guessed)
+--   * 'Date Not Captured' / 'Pre-PQ Process' / 'N/A - From RDC' in the procurement dates are kept as a status
+--   * freight and weight text values are typed into numeric + kind + reference columns; text is never coerced to 0
+--   * negative or zero physical quantities become NULL; zero line values are kept but excluded from ratios
+CREATE OR REPLACE TABLE stg_lines AS
+SELECT
+  CAST("ID" AS INTEGER)                                         AS line_id,
+  "Project Code"                                                AS project_code,
+  "ASN/DN #"                                                    AS shipment_id,
+  TRIM("Country")                                               AS country,
+  "Managed By"                                                  AS managed_by,
+  "Fulfill Via"                                                 AS fulfill_via,
+  "Vendor INCO Term"                                            AS inco_term,
+  CASE WHEN TRIM("Shipment Mode") IN ('', 'N/A') THEN 'Unknown' ELSE TRIM("Shipment Mode") END AS ship_mode,
+  "Shipment Mode"                                               AS ship_mode_raw,
+  "Product Group"                                               AS product_group,
+  TRIM("Vendor")                                                AS vendor,
+  ("First Line Designation" = 'Yes')                            AS is_first_line,
+  COALESCE(TRY_STRPTIME("Scheduled Delivery Date", '%d-%b-%y'), TRY_STRPTIME("Scheduled Delivery Date", '%d-%b-%Y'))::DATE
+                                                                AS scheduled_date,
+  COALESCE(TRY_STRPTIME("Delivered to Client Date", '%d-%b-%y'), TRY_STRPTIME("Delivered to Client Date", '%d-%b-%Y'))::DATE
+                                                                AS delivered_date,
+  COALESCE(TRY_STRPTIME("Delivery Recorded Date", '%d-%b-%y'), TRY_STRPTIME("Delivery Recorded Date", '%d-%b-%Y'))::DATE
+                                                                AS recorded_date,
+  "Scheduled Delivery Date"                                     AS scheduled_raw,
+  "Delivered to Client Date"                                    AS delivered_raw,
+  "Delivery Recorded Date"                                      AS recorded_raw,
+  COALESCE(TRY_STRPTIME("PO Sent to Vendor Date", '%m/%d/%Y'), TRY_STRPTIME("PO Sent to Vendor Date", '%m/%d/%y'))::DATE
+                                                                AS po_sent_date,
+  "PO Sent to Vendor Date"                                      AS po_sent_raw,
+  "PQ First Sent to Client Date"                                AS pq_sent_raw,
+  TRY_CAST("Line Item Quantity" AS DOUBLE)                      AS line_qty,
+  TRY_CAST("Line Item Value" AS DOUBLE)                         AS line_value_raw,
+  TRY_CAST("Unit Price" AS DOUBLE)                              AS unit_price,
+  TRY_CAST("Line Item Insurance (USD)" AS DOUBLE)               AS insurance_usd,
+  -- freight: numeric / included in commodity cost / invoiced separately / reference to another line / other
+  CASE WHEN regexp_matches("Freight Cost (USD)", '^-?[0-9]+(\.[0-9]+)?$') THEN 'numeric'
+       WHEN "Freight Cost (USD)" = 'Freight Included in Commodity Cost' THEN 'included_in_commodity_cost'
+       WHEN "Freight Cost (USD)" = 'Invoiced Separately' THEN 'invoiced_separately'
+       WHEN "Freight Cost (USD)" LIKE 'See %' THEN 'see_reference'
+       WHEN TRIM("Freight Cost (USD)") = '' THEN 'blank'
+       ELSE 'other' END                                         AS freight_kind,
+  TRY_CAST("Freight Cost (USD)" AS DOUBLE)                      AS freight_num_raw,
+  TRY_CAST(NULLIF(regexp_extract("Freight Cost (USD)", 'ID#:([0-9]+)', 1), '') AS INTEGER) AS freight_ref_line_id,
+  CASE WHEN regexp_matches("Weight (Kilograms)", '^-?[0-9]+(\.[0-9]+)?$') THEN 'numeric'
+       WHEN "Weight (Kilograms)" = 'Weight Captured Separately' THEN 'captured_separately'
+       WHEN "Weight (Kilograms)" LIKE 'See %' THEN 'see_reference'
+       WHEN TRIM("Weight (Kilograms)") = '' THEN 'blank'
+       ELSE 'other' END                                         AS weight_kind,
+  TRY_CAST("Weight (Kilograms)" AS DOUBLE)                      AS weight_num_raw
+FROM raw_scms;
