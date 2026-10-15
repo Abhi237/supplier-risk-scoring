@@ -1,50 +1,45 @@
-"""Cold-start policy: new sellers get the EB prior mean, a 'New / unscored' tier, and an honest OOT check."""
-import duckdb
+"""Cold-start policy: thin vendors get the EB prior mean, a 'New / unscored' tier and an honest OOT check."""
 import numpy as np
 import pandas as pd
 import pytest
 
 from supplier_risk import coldstart, pipeline
-from supplier_risk.db import run_sql_model
 from supplier_risk.shrinkage import BetaPrior, posterior_mean
 
-PRI = {"late": BetaPrior(2, 28), "handoff": BetaPrior(1, 9), "cancel": BetaPrior(0.1, 9.9)}
+PRI = {"late": BetaPrior(2, 28), "severe": BetaPrior(1, 29)}
 
 
 def test_cold_start_assigns_prior_mean_and_tier():
-    cs = coldstart.cold_start_scores(["a", "b"], PRI, 4.1)
+    cs = coldstart.cold_start_scores(["a", "b"], PRI, 1.3)
     assert list(cs.late_rate_shrunk) == pytest.approx([2 / 30] * 2)
-    assert list(cs.seller_handoff_late_rate) == pytest.approx([0.1] * 2)
+    assert list(cs.mean_days_late_shrunk) == pytest.approx([1.3] * 2)
     assert (cs.risk_tier == coldstart.NEW_TIER).all() and cs.risk_score.isna().all()
-    # identical to the EB posterior with zero observations
-    assert posterior_mean([0], [0], PRI["handoff"])[0] == pytest.approx(cs.seller_handoff_late_rate[0])
+    assert posterior_mean([0], [0], PRI["late"])[0] == pytest.approx(cs.late_rate_shrunk[0])
 
 
 def test_jeffreys_interval_contains_rate():
     lo, hi = coldstart.jeffreys(10, 100)
     assert lo < 0.1 < hi and 0 < lo and hi < 1
-    assert coldstart.jeffreys(0, 50)[0] == 0.0
+    assert coldstart.jeffreys(0, 50)[0] == 0.0 and coldstart.jeffreys(50, 50)[1] == 1.0
 
 
 def test_evaluate_cold_start_separates_new_and_scored():
-    scored = pd.DataFrame({"seller_id": ["s1", "s2"], "seller_handoff_late_rate": [0.05, 0.3]})
-    out = pd.DataFrame({"seller_id": ["s1", "s2", "n1", "n2"], "next_n_delivered": [100, 100, 50, 50],
-                        "next_n_late": [5, 30, 5, 5], "next_n_handoff_obs": [100, 100, 50, 50],
-                        "next_n_handoff_late": [5, 30, 10, 10], "next_gmv": [1000.0, 1000, 500, 500]})
-    r = coldstart.evaluate_cold_start(out, scored, PRI)
-    assert r["n_new_sellers"] == 2 and r["n_scored_sellers"] == 2
-    assert r["new_share_next_items"] == pytest.approx(100 / 300)
-    assert r["handoff"]["new_rate"] == pytest.approx(0.2)
-    assert r["handoff"]["scored_rate"] == pytest.approx(35 / 200)
-    assert r["handoff"]["prior_inside_ci"] is False   # 0.10 vs observed 0.20 on 100 items
-    assert 0 <= r["full_coverage_handoff_auc"] <= 1
+    scored = pd.DataFrame({"vendor": ["s1", "s2"], "late_rate_shrunk": [0.05, 0.3]})
+    hist = pd.DataFrame({"vendor": ["s1", "s2", "n2"]})
+    out = pd.DataFrame({"vendor": ["s1", "s2", "n1", "n2"], "next_n_lines": [100, 100, 50, 50], "next_n_late": [5, 30, 5, 5],
+                        "next_n_severe": [1, 5, 1, 1], "next_value": [1000.0, 1000, 500, 500]})
+    r = coldstart.evaluate_cold_start(out, scored, hist, PRI, 1.0)
+    assert r["n_new_vendors"] == 2 and r["n_new_no_history"] == 1 and r["n_scored_vendors"] == 2
+    assert r["new_share_next_lines"] == pytest.approx(100 / 300)
+    assert r["late"]["new_rate"] == pytest.approx(0.1) and r["late"]["scored_rate"] == pytest.approx(35 / 200)
+    assert r["late"]["prior_inside_ci"] is True
+    assert 0 <= r["full_coverage_late_auc"] <= 1
 
 
-def test_new_sellers_are_exactly_those_without_pre_cutoff_sales(sources, cfg):
-    c = duckdb.connect(":memory:")
-    run_sql_model(c, sources=sources, cfg=cfg, verbose=False, score_end="2018-01-01", validate_end="2018-09-01")
-    _, meta = pipeline.oot_split(c, cfg, "2018-01-01", "2018-09-01")
-    pre = set(c.execute("SELECT DISTINCT seller_id FROM fct_items WHERE purchase_ts < '2018-01-01'").df().seller_id)
-    post = c.execute("SELECT seller_id FROM oot_outcomes WHERE next_n_delivered > 0").df().seller_id
-    assert meta["cold_start"]["n_new_sellers"] == int(np.sum(~post.isin(pre)))
-    c.close()
+def test_new_vendors_are_exactly_those_below_threshold_or_unseen(con, cfg):
+    _, meta = pipeline.oot_split(con, cfg, "2012-01-01", "2016-01-01")
+    feat = con.execute("SELECT vendor, n_lines FROM oot_features").df()
+    scored = set(feat[feat.n_lines >= cfg["scoring"]["min_lines_for_score"]].vendor)
+    post = con.execute("SELECT vendor FROM oot_outcomes WHERE next_n_lines > 0").df().vendor
+    assert meta["cold_start"]["n_new_vendors"] == int(np.sum(~post.isin(scored)))
+    assert meta["cold_start"]["n_scored_vendors"] == int(np.sum(post.isin(scored)))

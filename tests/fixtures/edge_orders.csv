@@ -1,9 +1,0 @@
-order_id,customer_id,order_status,order_purchase_timestamp,order_approved_at,order_delivered_carrier_date,order_delivered_customer_date,order_estimated_delivery_date,case
-E1,C1,delivered,2017-03-01 10:00:00,2017-03-01 11:00:00,2017-03-02 10:00:00,2017-03-08 10:00:00,2017-03-20 00:00:00,on time; hand-off before limit
-E2,C2,delivered,2017-03-01 10:00:00,2017-03-01 12:00:00,2017-03-10 10:00:00,2017-03-25 10:00:00,2017-03-20 00:00:00,late; hand-off after limit
-E3,C3,canceled,2017-03-02 10:00:00,2017-03-02 11:00:00,,,2017-03-22 00:00:00,canceled no carrier
-E4,C4,delivered,2017-03-03 10:00:00,2017-03-03 11:00:00,2017-03-04 10:00:00,2017-03-20 18:00:00,2017-03-20 00:00:00,same-day as estimate => NOT late (date compare)
-E5,C5,delivered,2017-03-03 10:00:00,,2017-03-01 10:00:00,2017-03-09 10:00:00,2017-03-25 00:00:00,carrier before purchase (bad clock) + missing approval
-E6,C6,delivered,2017-03-04 10:00:00,2017-03-04 11:00:00,2017-03-05 10:00:00,,2017-03-25 00:00:00,delivered status missing delivery ts
-E7,C7,delivered,2017-03-05 10:00:00,2017-03-05 11:00:00,2017-03-06 10:00:00,2017-03-12 10:00:00,2017-03-25 00:00:00,multi-seller order
-E8,C8,shipped,2017-03-06 10:00:00,2017-03-06 11:00:00,,,2017-03-25 00:00:00,order without items
