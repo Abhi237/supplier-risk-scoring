@@ -1,423 +1,458 @@
 {
-  "n_sellers_scored": 3095,
+  "n_vendors_external": 72,
+  "n_vendors_scored": 29,
+  "n_vendors_unscored": 43,
+  "unscored_line_share": 0.02195121951219512,
+  "unscored_value_share": 0.009633187839432886,
   "priors": {
     "late": [
-      2.0295755998846094,
-      29.04597039659784,
-      0.06531101980040332,
-      31.07554599648245
+      0.6936277806520355,
+      21.381061375769228,
+      0.03142185947611712,
+      22.074689156421265
     ],
-    "handoff": [
-      0.5063318895931491,
-      4.057093901905169,
-      0.11095433841313856,
-      4.563425791498318
-    ],
-    "cancel": [
-      0.11186731963272313,
-      8.007102205941933,
-      0.013778512073526376,
-      8.118969525574657
+    "severe": [
+      0.6469486161349468,
+      34.6525974784826,
+      0.01832739192738779,
+      35.29954609461755
     ]
   },
-  "review_mu": 4.033086260608013,
-  "low_volume_sellers": 1201,
+  "pop_mean_days_late": 1.2613821138211383,
+  "pooled_freight_ratio": 0.06718919577026551,
+  "freight_prior_value": 412582.7,
+  "overall_ext_late_rate": 0.05264227642276423,
+  "shrinkage": {
+    "median_abs_shift_late_rate_pp_lt30_lines": 2.8811494767193255,
+    "median_abs_shift_late_rate_pp_ge100_lines": 0.1889538870071697,
+    "vendors_with_zero_late_raw": 51,
+    "min_shrunk_late_rate_among_zero_late": 0.0019927555845358413,
+    "max_raw_late_rate": 0.14285714285714285,
+    "n_vendors_raw_rate_100pct": 0
+  },
   "high_tier": {
-    "n": 310,
-    "gmv_share": 0.06454028146720768,
-    "late_gmv_share": 0.17450341067753738,
-    "late_rate": 0.16722652256462683,
-    "median_items": 4.0
+    "n": 3,
+    "value_share": 0.24443534689257038,
+    "late_value_share": 0.44656550199060435,
+    "late_rate": 0.13892078071182548,
+    "median_lines": 175.0
   },
-  "material_sellers_50plus": {
-    "n": 468,
-    "gmv_share": 0.6905545839168812
+  "material_vendors_50plus": {
+    "n": 16,
+    "value_share": 0.9486523367743738
   },
-  "top_material_risk": [
+  "top_vendors": [
     {
-      "seller_id": "2a1348e9addc1af5aaa619b1a3679d6b",
-      "seller_state": "MG",
-      "n_items": 55.0,
-      "gmv": 2843.0,
-      "late_rate_shrunk": 0.20748659534490888,
-      "risk_score": 90.07835218093699
+      "vendor": "CIPLA LIMITED",
+      "n_lines": 175.0,
+      "late_rate_shrunk": 0.1202266403771721,
+      "risk_score": 82.41379310344828
     },
     {
-      "seller_id": "835f0f7810c76831d6c7d24c7a646d4d",
-      "seller_state": "SP",
-      "n_items": 50.0,
-      "gmv": 5130.0,
-      "late_rate_shrunk": 0.1900660363515312,
-      "risk_score": 88.40306946688206
+      "vendor": "Aurobindo Pharma Limited",
+      "n_lines": 668.0,
+      "late_rate_shrunk": 0.13722228806335418,
+      "risk_score": 76.55172413793103
     },
     {
-      "seller_id": "ede0c03645598cdfc63ca8237acbe73d",
-      "seller_state": "SP",
-      "n_items": 50.0,
-      "gmv": 2518.37,
-      "late_rate_shrunk": 0.2181166379630806,
-      "risk_score": 84.81744749596123
+      "vendor": "BIO-RAD LABORATORIES (FRANCE)",
+      "n_lines": 28.0,
+      "late_rate_shrunk": 0.09373253952691096,
+      "risk_score": 76.0344827586207
     },
     {
-      "seller_id": "b17b679f4f5ce2e03ce6968c62648246",
-      "seller_state": "SP",
-      "n_items": 57.0,
-      "gmv": 4084.75,
-      "late_rate_shrunk": 0.12219931622891003,
-      "risk_score": 83.54927302100161
+      "vendor": "EMCURE PHARMACEUTICALS LTD",
+      "n_lines": 41.0,
+      "late_rate_shrunk": 0.042705367504420166,
+      "risk_score": 72.84482758620689
     },
     {
-      "seller_id": "d20b021d3efdf267a402c402a48ea64b",
-      "seller_state": "SP",
-      "n_items": 106.0,
-      "gmv": 4140.17,
-      "late_rate_shrunk": 0.14299829061296968,
-      "risk_score": 82.83844911147013
-    },
-    {
-      "seller_id": "855668e0971d4dfd7bef1b6a4133b41b",
-      "seller_state": "SP",
-      "n_items": 327.0,
-      "gmv": 32208.16,
-      "late_rate_shrunk": 0.11994302451630529,
-      "risk_score": 82.16801292407108
-    },
-    {
-      "seller_id": "bbad7e518d7af88a0897397ffdca1979",
-      "seller_state": "SP",
-      "n_items": 85.0,
-      "gmv": 4462.22,
-      "late_rate_shrunk": 0.18274582508196335,
-      "risk_score": 82.10904684975768
-    },
-    {
-      "seller_id": "6973a06f484aacf400ece213dbf3d946",
-      "seller_state": "SP",
-      "n_items": 115.0,
-      "gmv": 11011.05,
-      "late_rate_shrunk": 0.12963871880352437,
-      "risk_score": 82.02342487883683
-    },
-    {
-      "seller_id": "dc8798cbf453b7e0f98745e396cc5616",
-      "seller_state": "SP",
-      "n_items": 51.0,
-      "gmv": 2056.3,
-      "late_rate_shrunk": 0.06789792140207031,
-      "risk_score": 81.71001615508887
-    },
-    {
-      "seller_id": "54965bbe3e4f07ae045b90b0b8541f52",
-      "seller_state": "PR",
-      "n_items": 86.0,
-      "gmv": 10961.3,
-      "late_rate_shrunk": 0.25009537406816945,
-      "risk_score": 80.44749596122779
+      "vendor": "Abbott GmbH & Co. KG",
+      "n_lines": 21.0,
+      "late_rate_shrunk": 0.039318398201361404,
+      "risk_score": 72.24137931034483
     }
   ],
   "interval_width_median": {
-    "small_lt20": 51.42382875605814,
-    "large_ge100": 23.598626817447446
+    "small_lt30": 38.456896551724135,
+    "large_ge100": 14.159482758620689
   },
   "clusters": {
-    "k": 4,
-    "silhouette": 0.17447322663991915,
-    "n_clustered": 894,
+    "k": 3,
+    "silhouette": 0.487488,
+    "n_clustered": 24,
     "names": [
-      "High-volume core suppliers",
-      "Small occasional sellers",
-      "Slow dispatchers",
-      "Cancellation-prone"
+      "Air-dependent",
+      "Chronic late deliverers",
+      "Surface / truck-based"
     ]
   },
   "oot_main": {
-    "score_end": "2018-01-01",
-    "validate_end": "2018-09-01",
-    "n_sellers_scored": 1811,
-    "n_sellers_evaluated": 1081,
-    "next_items_covered_share": 0.7524951092542856,
-    "next_late_rate": 0.07830090991209324,
-    "next_handoff_late_rate": 0.08866285414938666,
-    "max_delivered_ts_used": "2017-12-31 15:19:16",
+    "score_end": "2012-01-01",
+    "validate_end": "2016-01-01",
+    "n_vendors_with_history": 54,
+    "n_vendors_scored": 24,
+    "n_vendors_evaluated": 21,
+    "n_vendors_next_period": 49,
+    "next_lines_covered_share": 0.8352852285606347,
+    "next_lines": 2211,
+    "next_late_lines": 108,
+    "next_severe_lines": 26,
+    "next_late_rate": 0.048846675712347354,
+    "next_severe_rate": 0.011759384893713252,
+    "feature_lines": 2269,
+    "max_known_date_used": "2011-12-22 00:00:00",
+    "max_scheduled_used": "2011-12-22 00:00:00",
     "prior_late": [
-      1.4490554035755343,
-      30.856707512927606
+      0.6499418064678766,
+      15.266152034599807
     ],
     "cold_start": {
-      "n_new_sellers": 1249,
-      "n_scored_sellers": 1081,
-      "new_share_next_items": 0.24750489074571438,
-      "new_share_next_gmv": 0.299125980370053,
-      "handoff": {
-        "prior_mean": 0.12661574769242237,
-        "new_rate": 0.0865621873957986,
-        "new_lo95": 0.08214123636917697,
-        "new_hi95": 0.09114271882543183,
-        "new_items": 14995.0,
-        "scored_rate": 0.08866285414938666,
-        "prior_inside_ci": false
-      },
+      "n_new_vendors": 28,
+      "n_new_no_history": 18,
+      "n_scored_vendors": 21,
+      "new_share_next_lines": 0.16471477143936533,
+      "new_share_next_value": 0.023844958044470885,
       "late": {
-        "prior_mean": 0.04485439354336671,
-        "new_rate": 0.06410342286824301,
-        "new_lo95": 0.060258648328896124,
-        "new_hi95": 0.0681171881100778,
-        "new_items": 14929.0,
-        "scored_rate": 0.07830090991209324,
+        "prior_mean": 0.040835509827848386,
+        "new_rate": 0.0022935779816513763,
+        "new_lo95": 0.0002475830517883944,
+        "new_hi95": 0.01066947844933036,
+        "new_lines": 436.0,
+        "new_events": 1.0,
+        "scored_rate": 0.048846675712347354,
         "prior_inside_ci": false
       },
-      "full_coverage_handoff_auc": 0.6658578623949989,
-      "scored_only_handoff_auc": 0.7038369614008354
+      "severe": {
+        "prior_mean": 0.028154184876818696,
+        "new_rate": 0.0,
+        "new_lo95": 0.0,
+        "new_hi95": 0.0057414875148363706,
+        "new_lines": 436.0,
+        "new_events": 0.0,
+        "scored_rate": 0.011759384893713252,
+        "prior_inside_ci": false
+      },
+      "full_coverage_late_auc": 0.7619938404146877,
+      "scored_only_late_auc": 0.7375002201440622
     }
   },
   "oot_backtests": [
     {
-      "score_end": "2017-07-01",
-      "validate_end": "2018-01-01",
-      "n_sellers_scored": 1013,
-      "n_sellers_evaluated": 668,
-      "next_items_covered_share": 0.7366740576496674,
-      "next_late_rate": 0.05935468336142548,
-      "next_handoff_late_rate": 0.09345794392523364,
-      "max_delivered_ts_used": "2017-06-30 19:09:42",
+      "score_end": "2009-07-01",
+      "validate_end": "2011-07-01",
+      "n_vendors_with_history": 43,
+      "n_vendors_scored": 17,
+      "n_vendors_evaluated": 16,
+      "n_vendors_next_period": 37,
+      "next_lines_covered_share": 0.8685927306616962,
+      "next_lines": 932,
+      "next_late_lines": 99,
+      "next_severe_lines": 65,
+      "next_late_rate": 0.10622317596566523,
+      "next_severe_rate": 0.06974248927038626,
+      "feature_lines": 919,
+      "max_known_date_used": "2009-06-30 00:00:00",
+      "max_scheduled_used": "2009-06-30 00:00:00",
       "prior_late": [
-        1.7487032457239169,
-        50.05748223584523
+        6.266475133904948,
+        294.61938509423936
       ],
       "cold_start": {
-        "n_new_sellers": 762,
-        "n_scored_sellers": 668,
-        "new_share_next_items": 0.2633259423503326,
-        "new_share_next_gmv": 0.3013411764263097,
-        "handoff": {
-          "prior_mean": 0.14688687244674473,
-          "new_rate": 0.11071547791254034,
-          "new_lo95": 0.10435365572973863,
-          "new_hi95": 0.1173279887756343,
-          "new_items": 8987.0,
-          "scored_rate": 0.09345794392523364,
-          "prior_inside_ci": false
-        },
+        "n_new_vendors": 21,
+        "n_new_no_history": 10,
+        "n_scored_vendors": 16,
+        "new_share_next_lines": 0.13140726933830382,
+        "new_share_next_value": 0.1559686501467053,
         "late": {
-          "prior_mean": 0.03375471923803472,
-          "new_rate": 0.07409902324014819,
-          "new_lo95": 0.06879742793267205,
-          "new_hi95": 0.07967734364514509,
-          "new_items": 8907.0,
-          "scored_rate": 0.05935468336142548,
-          "prior_inside_ci": false
-        },
-        "full_coverage_handoff_auc": 0.627186314103904,
-        "scored_only_handoff_auc": 0.6482150807614586
-      }
-    },
-    {
-      "score_end": "2017-10-01",
-      "validate_end": "2018-04-01",
-      "n_sellers_scored": 1384,
-      "n_sellers_evaluated": 875,
-      "next_items_covered_share": 0.773379059543812,
-      "next_late_rate": 0.10252671051456802,
-      "next_handoff_late_rate": 0.10608823529411765,
-      "max_delivered_ts_used": "2017-09-30 20:09:53",
-      "prior_late": [
-        1.0803141822245388,
-        30.18436071541762
-      ],
-      "cold_start": {
-        "n_new_sellers": 769,
-        "n_scored_sellers": 875,
-        "new_share_next_items": 0.226620940456188,
-        "new_share_next_gmv": 0.2580202333913301,
-        "handoff": {
-          "prior_mean": 0.12850106563613983,
-          "new_rate": 0.12359663191659984,
-          "new_lo95": 0.11724764621456944,
-          "new_hi95": 0.13016398633117818,
-          "new_items": 9976.0,
-          "scored_rate": 0.10608823529411765,
+          "prior_mean": 0.020826751809318797,
+          "new_rate": 0.02127659574468085,
+          "new_lo95": 0.00602797436965543,
+          "new_hi95": 0.055684139344360034,
+          "new_lines": 141.0,
+          "new_events": 3.0,
+          "scored_rate": 0.10622317596566523,
           "prior_inside_ci": true
         },
-        "late": {
-          "prior_mean": 0.03455382746698611,
-          "new_rate": 0.1194393662400975,
-          "new_lo95": 0.11314564640006089,
-          "new_hi95": 0.1259567808034732,
-          "new_items": 9846.0,
-          "scored_rate": 0.10252671051456802,
-          "prior_inside_ci": false
+        "severe": {
+          "prior_mean": 0.011758179041594322,
+          "new_rate": 0.02127659574468085,
+          "new_lo95": 0.00602797436965543,
+          "new_hi95": 0.055684139344360034,
+          "new_lines": 141.0,
+          "new_events": 3.0,
+          "scored_rate": 0.06974248927038626,
+          "prior_inside_ci": true
         },
-        "full_coverage_handoff_auc": 0.638375237780691,
-        "scored_only_handoff_auc": 0.6588672312856829
+        "full_coverage_late_auc": 0.525297348599584,
+        "scored_only_late_auc": 0.5813658796852075
       }
     },
     {
-      "score_end": "2018-01-01",
-      "validate_end": "2018-09-01",
-      "n_sellers_scored": 1811,
-      "n_sellers_evaluated": 1081,
-      "next_items_covered_share": 0.7524951092542856,
-      "next_late_rate": 0.07830090991209324,
-      "next_handoff_late_rate": 0.08866285414938666,
-      "max_delivered_ts_used": "2017-12-31 15:19:16",
+      "score_end": "2010-07-01",
+      "validate_end": "2012-07-01",
+      "n_vendors_with_history": 48,
+      "n_vendors_scored": 20,
+      "n_vendors_evaluated": 16,
+      "n_vendors_next_period": 34,
+      "next_lines_covered_share": 0.9215686274509803,
+      "next_lines": 940,
+      "next_late_lines": 109,
+      "next_severe_lines": 74,
+      "next_late_rate": 0.11595744680851064,
+      "next_severe_rate": 0.07872340425531915,
+      "feature_lines": 1495,
+      "max_known_date_used": "2010-06-30 00:00:00",
+      "max_scheduled_used": "2010-06-30 00:00:00",
       "prior_late": [
-        1.4490554035755343,
-        30.856707512927606
+        1.2062998114520957,
+        45.447113481361825
       ],
       "cold_start": {
-        "n_new_sellers": 1249,
-        "n_scored_sellers": 1081,
-        "new_share_next_items": 0.24750489074571438,
-        "new_share_next_gmv": 0.299125980370053,
-        "handoff": {
-          "prior_mean": 0.12661574769242237,
-          "new_rate": 0.0865621873957986,
-          "new_lo95": 0.08214123636917697,
-          "new_hi95": 0.09114271882543183,
-          "new_items": 14995.0,
-          "scored_rate": 0.08866285414938666,
-          "prior_inside_ci": false
-        },
+        "n_new_vendors": 18,
+        "n_new_no_history": 10,
+        "n_scored_vendors": 16,
+        "new_share_next_lines": 0.0784313725490196,
+        "new_share_next_value": 0.0522189701560415,
         "late": {
-          "prior_mean": 0.04485439354336671,
-          "new_rate": 0.06410342286824301,
-          "new_lo95": 0.060258648328896124,
-          "new_hi95": 0.0681171881100778,
-          "new_items": 14929.0,
-          "scored_rate": 0.07830090991209324,
+          "prior_mean": 0.02585662497791782,
+          "new_rate": 0.05,
+          "new_lo95": 0.017109639878477682,
+          "new_hi95": 0.11449281895741358,
+          "new_lines": 80.0,
+          "new_events": 4.0,
+          "scored_rate": 0.11595744680851064,
+          "prior_inside_ci": true
+        },
+        "severe": {
+          "prior_mean": 0.013262541535764413,
+          "new_rate": 0.0375,
+          "new_lo95": 0.010672927338833665,
+          "new_hi95": 0.09669020181534672,
+          "new_lines": 80.0,
+          "new_events": 3.0,
+          "scored_rate": 0.07872340425531915,
+          "prior_inside_ci": true
+        },
+        "full_coverage_late_auc": 0.5979451854309159,
+        "scored_only_late_auc": 0.588966537497654
+      }
+    },
+    {
+      "score_end": "2012-01-01",
+      "validate_end": "2016-01-01",
+      "n_vendors_with_history": 54,
+      "n_vendors_scored": 24,
+      "n_vendors_evaluated": 21,
+      "n_vendors_next_period": 49,
+      "next_lines_covered_share": 0.8352852285606347,
+      "next_lines": 2211,
+      "next_late_lines": 108,
+      "next_severe_lines": 26,
+      "next_late_rate": 0.048846675712347354,
+      "next_severe_rate": 0.011759384893713252,
+      "feature_lines": 2269,
+      "max_known_date_used": "2011-12-22 00:00:00",
+      "max_scheduled_used": "2011-12-22 00:00:00",
+      "prior_late": [
+        0.6499418064678766,
+        15.266152034599807
+      ],
+      "cold_start": {
+        "n_new_vendors": 28,
+        "n_new_no_history": 18,
+        "n_scored_vendors": 21,
+        "new_share_next_lines": 0.16471477143936533,
+        "new_share_next_value": 0.023844958044470885,
+        "late": {
+          "prior_mean": 0.040835509827848386,
+          "new_rate": 0.0022935779816513763,
+          "new_lo95": 0.0002475830517883944,
+          "new_hi95": 0.01066947844933036,
+          "new_lines": 436.0,
+          "new_events": 1.0,
+          "scored_rate": 0.048846675712347354,
           "prior_inside_ci": false
         },
-        "full_coverage_handoff_auc": 0.6658578623949989,
-        "scored_only_handoff_auc": 0.7038369614008354
+        "severe": {
+          "prior_mean": 0.028154184876818696,
+          "new_rate": 0.0,
+          "new_lo95": 0.0,
+          "new_hi95": 0.0057414875148363706,
+          "new_lines": 436.0,
+          "new_events": 0.0,
+          "scored_rate": 0.011759384893713252,
+          "prior_inside_ci": false
+        },
+        "full_coverage_late_auc": 0.7619938404146877,
+        "scored_only_late_auc": 0.7375002201440622
+      }
+    },
+    {
+      "score_end": "2013-01-01",
+      "validate_end": "2016-01-01",
+      "n_vendors_with_history": 60,
+      "n_vendors_scored": 27,
+      "n_vendors_evaluated": 21,
+      "n_vendors_next_period": 38,
+      "next_lines_covered_share": 0.8173791821561338,
+      "next_lines": 1759,
+      "next_late_lines": 84,
+      "next_severe_lines": 19,
+      "next_late_rate": 0.047754405912450254,
+      "next_severe_rate": 0.010801591813530414,
+      "feature_lines": 2768,
+      "max_known_date_used": "2012-12-31 00:00:00",
+      "max_scheduled_used": "2012-12-31 00:00:00",
+      "prior_late": [
+        0.6178295104979193,
+        15.124573579461494
+      ],
+      "cold_start": {
+        "n_new_vendors": 17,
+        "n_new_no_history": 12,
+        "n_scored_vendors": 21,
+        "new_share_next_lines": 0.18262081784386616,
+        "new_share_next_value": 0.01971760371123481,
+        "late": {
+          "prior_mean": 0.03924620065738084,
+          "new_rate": 0.0,
+          "new_lo95": 0.0,
+          "new_hi95": 0.006367288223018048,
+          "new_lines": 393.0,
+          "new_events": 0.0,
+          "scored_rate": 0.047754405912450254,
+          "prior_inside_ci": false
+        },
+        "severe": {
+          "prior_mean": 0.02555651511405541,
+          "new_rate": 0.0,
+          "new_lo95": 0.0,
+          "new_hi95": 0.006367288223018048,
+          "new_lines": 393.0,
+          "new_events": 0.0,
+          "scored_rate": 0.010801591813530414,
+          "prior_inside_ci": false
+        },
+        "full_coverage_late_auc": 0.7558170995670996,
+        "scored_only_late_auc": 0.7292501776830136
       }
     }
   ],
   "auc_deltas": {
     "composite_vs_raw_late_late": {
-      "delta": -0.0023819996813325695,
-      "lo95": -0.013469483104181107,
-      "hi95": 0.00972300058944966,
-      "p_le_0": 0.605
+      "delta": -0.026113488666983597,
+      "lo95": -0.05982201787831204,
+      "hi95": 0.055221918254416975,
+      "p_le_0": 0.73,
+      "n_valid_resamples": 200
     },
-    "eb_handoff_vs_raw_handoff_late": {
-      "delta": 0.002898785249740743,
-      "lo95": -0.003197346792525052,
-      "hi95": 0.012771573648516566,
-      "p_le_0": 0.225
+    "eb_late_vs_raw_late_late": {
+      "delta": 0.007101847448970688,
+      "lo95": -0.00024208878755812562,
+      "hi95": 0.08622653031918698,
+      "p_le_0": 0.07,
+      "n_valid_resamples": 200
     },
     "composite_vs_volume_late": {
-      "delta": 0.03878136829179718,
-      "lo95": 0.01302835850435907,
-      "hi95": 0.06259031233483905,
-      "p_le_0": 0.005
+      "delta": 0.33149292897271976,
+      "lo95": -0.15076073224822775,
+      "hi95": 0.49349135717984466,
+      "p_le_0": 0.1,
+      "n_valid_resamples": 200
     },
-    "composite_vs_raw_late_handoff": {
-      "delta": 0.08433222114138295,
-      "lo95": 0.056944772601486546,
-      "hi95": 0.1148065646074444,
-      "p_le_0": 0.0
+    "composite_vs_lane_only_late": {
+      "delta": 0.43610979024673746,
+      "lo95": -0.01616835598668181,
+      "hi95": 0.6327670478028965,
+      "p_le_0": 0.07,
+      "n_valid_resamples": 200
     },
-    "eb_handoff_vs_raw_handoff_handoff": {
-      "delta": 0.022978603041060475,
-      "lo95": 0.012004098487419596,
-      "hi95": 0.038754554925809204,
-      "p_le_0": 0.0
+    "composite_vs_raw_late_severe": {
+      "delta": -0.02797042774159486,
+      "lo95": -0.17738821140111521,
+      "hi95": 0.15798930147904577,
+      "p_le_0": 0.7085427135678392,
+      "n_valid_resamples": 199
     },
-    "composite_vs_volume_handoff": {
-      "delta": 0.14535851550912937,
-      "lo95": 0.08022439517661693,
-      "hi95": 0.23202541778462063,
-      "p_le_0": 0.0
+    "eb_late_vs_raw_late_severe": {
+      "delta": 0.02094701637035723,
+      "lo95": -0.001296600658994118,
+      "hi95": 0.2116876468099386,
+      "p_le_0": 0.1507537688442211,
+      "n_valid_resamples": 199
+    },
+    "composite_vs_volume_severe": {
+      "delta": 0.20783312797042774,
+      "lo95": -0.24173417454236393,
+      "hi95": 0.47876042446725026,
+      "p_le_0": 0.2613065326633166,
+      "n_valid_resamples": 199
+    },
+    "composite_vs_lane_only_severe": {
+      "delta": 0.42937863052279523,
+      "lo95": -0.0006631933196228839,
+      "hi95": 0.61666394121091,
+      "p_le_0": 0.03015075376884422,
+      "n_valid_resamples": 199
     }
   },
   "scenario_base_ASSUMED": {
-    "top_share": 0.1,
+    "top_share": 0.2,
     "realloc_frac": 0.5,
     "improvement_ASSUMED": 0.5,
-    "n_top_sellers": 108,
-    "top_gmv_share": 0.09996118702558038,
-    "top_late_rate_gmv": 0.09500336230827354,
-    "rest_late_rate_gmv": 0.08507780001140164,
-    "moved_gmv": 258282.38500000004,
-    "late_gmv_before": 444779.77999999997,
-    "late_gmv_avoided": 1281.7989512510765,
-    "late_gmv_after": 443497.9810487489,
-    "late_gmv_reduction_pct": 0.0028818732525365174
+    "n_top_vendors": 4,
+    "top_value_share": 0.15447528870101943,
+    "top_late_rate_value": 0.08791728110413805,
+    "rest_late_rate_value": 0.09640832778503429,
+    "moved_value": 20392822.975,
+    "late_value_before": 25108088.05,
+    "late_value_avoided": 0.0,
+    "late_value_after": 25108088.05,
+    "late_value_reduction_pct": 0.0
   },
   "scenario_raw_baseline_ASSUMED": {
-    "top_share": 0.1,
+    "top_share": 0.2,
     "realloc_frac": 0.5,
     "improvement_ASSUMED": 0.5,
-    "n_top_sellers": 108,
-    "top_gmv_share": 0.05066982800870574,
-    "top_late_rate_gmv": 0.09906608172320547,
-    "rest_late_rate_gmv": 0.08537631276173677,
-    "moved_gmv": 130922.05499999998,
-    "late_gmv_before": 444779.78,
-    "late_gmv_avoided": 896.146342455349,
-    "late_gmv_after": 443883.6336575447,
-    "late_gmv_reduction_pct": 0.0020148090869943525
+    "n_top_vendors": 4,
+    "top_value_share": 0.505038951379508,
+    "top_late_rate_value": 0.17666142463621168,
+    "rest_late_rate_value": 0.01187117706842405,
+    "moved_value": 66671957.81,
+    "late_value_before": 25108088.05,
+    "late_value_avoided": 5493444.216669496,
+    "late_value_after": 19614643.833330505,
+    "late_value_reduction_pct": 0.21879181743069823
   },
-  "scenario_handoff_items_ASSUMED": {
-    "Composite risk score (shrunk)": {
-      "top_share": 0.1,
-      "realloc_frac": 0.5,
-      "improvement_ASSUMED": 0.5,
-      "n_top_sellers": 108,
-      "top_items_share": 0.10837298642336404,
-      "top_late_rate_items": 0.20966767371601208,
-      "rest_late_rate_items": 0.07395529878332395,
-      "moved_items": 2482.5,
-      "late_items_before": 4062.0,
-      "late_items_avoided": 168.45298538519913,
-      "late_items_after": 3893.547014614801,
-      "late_items_reduction_pct": 0.04147045430457881
-    },
-    "Shrunk hand-off late rate (EB) only": {
-      "top_share": 0.1,
-      "realloc_frac": 0.5,
-      "improvement_ASSUMED": 0.5,
-      "n_top_sellers": 108,
-      "top_items_share": 0.08763696686602349,
-      "top_late_rate_items": 0.20049813200498132,
-      "rest_late_rate_items": 0.07792052441445968,
-      "moved_items": 2007.5,
-      "late_items_before": 4062.0,
-      "late_items_avoided": 123.03727361898609,
-      "late_items_after": 3938.962726381014,
-      "late_items_reduction_pct": 0.030289826100193522
-    },
-    "Baseline: raw hand-off late rate": {
-      "top_share": 0.1,
-      "realloc_frac": 0.5,
-      "improvement_ASSUMED": 0.5,
-      "n_top_sellers": 108,
-      "top_items_share": 0.05699131269917492,
-      "top_late_rate_items": 0.22711604749138262,
-      "rest_late_rate_items": 0.08029534985996342,
-      "moved_items": 1305.5,
-      "late_items_before": 4062.0,
-      "late_items_avoided": 95.83721037890888,
-      "late_items_after": 3966.162789621091,
-      "late_items_reduction_pct": 0.02359360176733355
-    }
+  "scenario_eb_ASSUMED": {
+    "top_share": 0.2,
+    "realloc_frac": 0.5,
+    "improvement_ASSUMED": 0.5,
+    "n_top_vendors": 4,
+    "top_value_share": 0.5050389513795079,
+    "top_late_rate_value": 0.17666142463621168,
+    "rest_late_rate_value": 0.01187117706842405,
+    "moved_value": 66671957.81,
+    "late_value_before": 25108088.05,
+    "late_value_avoided": 5493444.216669496,
+    "late_value_after": 19614643.833330505,
+    "late_value_reduction_pct": 0.21879181743069823
   },
   "exposure_totals": {
-    "gmv": 13591643.7,
-    "late_gmv": 985924.3400000001,
-    "gmv_at_risk": 913659.8428952026,
-    "freight": 2251909.54,
-    "wc_in_transit": 407176.1018602364,
-    "wc_excess_delay": 29782.196628354974,
-    "total_exposure_ASSUMED": 729477.4892410357,
-    "top10pct_gmv_at_risk_share": 0.710048193154847,
-    "top10pct_gmv_share": 0.6749456756286218
+    "value_usd": 542212022.34,
+    "late_value_usd": 56501133.49,
+    "value_at_risk": 40413450.83206047,
+    "wc_excess_delay": 3536115.7731578317,
+    "total_exposure_ASSUMED": 2278873.535118454,
+    "scored_value_share": 0.9903668121605669,
+    "top10pct_value_at_risk_share": 0.9487658311091394,
+    "top10pct_value_share": 0.8221405958432849
   },
   "exposure_params_ASSUMED": {
-    "late_cost_pct_of_gmv": 0.05,
-    "freight_absorb_pct": 0.3,
-    "cancel_cost_pct_of_gmv": 0.1,
-    "top_risk_share_to_reallocate": 0.1,
+    "late_cost_pct_of_value": 0.05,
+    "carrying_rate_annual": 0.1,
+    "top_risk_share_to_reallocate": 0.2,
     "reallocation_late_rate_improvement": 0.5
   }
 }

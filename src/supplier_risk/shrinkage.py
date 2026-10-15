@@ -1,7 +1,7 @@
-"""Empirical-Bayes shrinkage for small-volume sellers.
+"""Empirical-Bayes shrinkage for small-volume vendors.
 
 * Rates (late, hand-off late, cancel): beta-binomial model. The Beta(a, b) prior is fitted by maximum
-  marginal likelihood across sellers, then each seller's posterior is Beta(a + k, b + n - k).
+  marginal likelihood across vendors, then each vendor's posterior is Beta(a + k, b + n - k).
 * Means (review score): normal-normal shrinkage toward the population mean with a pseudo-count prior.
 """
 from __future__ import annotations
@@ -23,7 +23,7 @@ class BetaPrior:
 
     @property
     def strength(self) -> float:
-        """Prior pseudo-count a + b: a seller with n observations gets weight n / (n + a + b) on its own data."""
+        """Prior pseudo-count a + b: a vendor with n observations gets weight n / (n + a + b) on its own data."""
         return self.a + self.b
 
 
@@ -35,7 +35,7 @@ def betabinom_neg_loglik(log_ab: np.ndarray, k: np.ndarray, n: np.ndarray) -> fl
 
 
 def fit_beta_prior(k, n, fallback: BetaPrior | None = None, min_n: int = 1) -> BetaPrior:
-    """Maximum marginal-likelihood Beta prior from per-seller successes k out of n trials."""
+    """Maximum marginal-likelihood Beta prior from per-vendor successes k out of n trials."""
     k, n = np.asarray(k, float), np.asarray(n, float)
     m = n >= min_n
     k, n = k[m], n[m]

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "supplier-risk"
 version = "1.0.0"
-description = "Supplier reliability & procurement risk scoring on Olist Brazilian E-Commerce (sellers as supplier proxies)"
+description = "Health supply vendor delivery-risk scoring on the USAID / PEPFAR SCMS Delivery History (empirical-Bayes shrinkage, multilevel models)"
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
 license = { text = "MIT" }
@@ -26,7 +26,7 @@ supplier-risk = "supplier_risk.cli:main"
 where = ["src"]
 
 [tool.ruff]
-line-length = 120
+line-length = 130
 target-version = "py310"
 extend-exclude = ["notebooks"]
 
@@ -44,3 +44,4 @@ addopts = "-q"
 "scripts/make_notebooks.py" = ["E501"]
 "app/views/*.py" = ["E501"]
 "app/core.py" = ["E501"]  # CSS block
+"tests/*.py" = ["E501"]

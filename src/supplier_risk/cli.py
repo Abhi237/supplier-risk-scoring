@@ -17,24 +17,24 @@ def _p(obj):
 
 @click.group()
 def main():
-    """Supplier reliability & procurement risk pipeline (Olist sellers as supplier proxies)."""
+    """Vendor delivery-risk pipeline (USAID / PEPFAR SCMS vendors)."""
 
 
 @main.command()
 def data():
-    """Download Olist CSVs from the public mirror, verify row counts, convert to parquet."""
+    """Obtain the SCMS Delivery History CSV from public sources, verify it, convert to parquet."""
     subprocess.run([sys.executable, str(ROOT / "scripts/download_data.py")], check=True)
 
 
 @main.command()
 def sql():
-    """Run numbered DuckDB SQL scripts (staging, DQ, intervals, seller summary, seller-month panel, OOT)."""
+    """Run numbered DuckDB SQL scripts (staging, cleaning log, line intervals, vendor summary, panel, OOT)."""
     _p(pipeline.run_sql())
 
 
 @main.command()
 def train():
-    """Shrunk seller scores + bootstrap intervals, archetypes, OOT validation, exposure and scenarios."""
+    """Shrunk vendor scores + bootstrap intervals, archetypes, OOT validation, exposure and scenarios."""
     _p(pipeline.train())
 
 
