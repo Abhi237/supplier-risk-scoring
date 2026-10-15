@@ -1,321 +1,241 @@
-# Supplier Reliability & Procurement Risk Scoring
+# Health Supply Vendor Risk - Using empirical-Bayes shrinkage and multilevel models to score on-time delivery risk on USAID / PEPFAR health-commodity order lines
 
-> **Outcome:** an empirical-Bayes reliability scorecard for 3,095 Olist sellers (used as
-> **supplier proxies**) that predicts next-period seller-controlled dispatch lateness out-of-time
-> (AUC 0.704 vs 0.681 for the raw rate and 0.521 for
-> volume-only; top score decile 21.0% late hand-offs vs
-> 2.9% in the bottom decile) - and shows, honestly, that end-to-end customer
-> lateness is mostly *not* a stable supplier trait, so volume reallocation alone would barely move it.
+> **Outcome:** an empirical-Bayes delivery-risk scorecard for 72 vendors of the USAID / PEPFAR Supply Chain
+> Management System (SCMS), built on 10,324 order lines. The scorecard is honest about what it can and cannot
+> do: out-of-time line-level AUC is 0.704 for the composite, 0.738 for the shrunk late rate alone
+> and 0.730 for the raw late rate on only 21 evaluable vendors and 108 late lines, so a simple
+> baseline matches or beats the composite and every interval is wide.
 
 [![CI](https://github.com/Abhi237/supplier-risk-scoring/actions/workflows/ci.yml/badge.svg)](https://github.com/Abhi237/supplier-risk-scoring/actions/workflows/ci.yml)
 · SQL (DuckDB) · Python (empirical Bayes, scikit-learn) · R (GLM, lme4, MASS, Quarto) · Streamlit
 
 | | |
 |---|---|
-| ![Hand-off vs late](docs/figures/handoff_delay_vs_late.png) | ![OOT validation](docs/figures/oot_validation_auc.png) |
-| ![Shrinkage](docs/figures/shrinkage_and_intervals.png) | ![Archetypes](docs/figures/seller_archetypes.png) |
+| ![Programme lateness](docs/figures/programme_yearly_lateness.png) | ![OOT validation](docs/figures/oot_validation_auc.png) |
+| ![Shrinkage](docs/figures/shrinkage_and_intervals.png) | ![Archetypes](docs/figures/vendor_archetypes.png) |
 
 **Deliverables:** [procurement memo (PDF)](docs/procurement_memo.pdf) · [memo (md)](docs/procurement_memo.md) ·
 [R delivery report (HTML)](reports/delivery_report.html) · [EDA notebook](notebooks/01_eda.ipynb) ·
 [model notebook](notebooks/02_model_walkthrough.ipynb) · [data dictionary](docs/data_dictionary.md) ·
 [data model](docs/data_model.md) · [architecture](docs/architecture.md)
 
-> **Methodology note - sellers as supplier proxies.** Olist sellers are independent marketplace merchants who ship
-> through Olist's carriers. They stand in for suppliers: they have a dispatch deadline (`shipping_limit_date`), a
-> customer promise date, freight cost, cancellations and quality feedback. They are **not** a buyer's contracted
-> vendors (no POs, invoices or payment terms), so the *method* transfers to procurement data while vendor-level facts
-> do not.
+> **Scope and framing.** The buyer is a **US government health-supply programme** (USAID / PEPFAR SCMS). Commodities
+> (antiretrovirals, HIV test kits and a few others) are shipped to PEPFAR-supported countries (43 destinations, mostly in
+> sub-Saharan Africa). **Nothing here is a US-domestic delivery.** Vendors are the real suppliers named in the dataset.
+> On time means `Delivered to Client Date <= Scheduled Delivery Date`. **There is no vendor hand-off timestamp**, so there is no
+> vendor-controlled vs end-to-end split: lateness mixes vendor, freight-forwarder and in-country effects. Scores describe
+> **recorded delivery performance in this programme, not vendor quality overall**, and rest on limited samples.
 
 ## Interactive app
-A multipage Streamlit app (`app/streamlit_app.py`) presents the project for stakeholders. It reads **only** compact
-aggregated artifacts committed in `app/data/` (~1 MB: summaries, validation tables, aggregated lane/category tables
-and the 3,095 seller scorecards). No customer-level data, no order rows, no ML libraries at deploy time.
-
-**Design:** an operations "control tower" look - dark slate theme with teal/amber accents and a red-amber-green risk
-palette, top navigation (Story · Score · Decide), breadcrumb eyebrow + status bar on every page, traffic-light status
-tiles and a live alert list of top-risk material sellers on the executive summary, monospace numerals, and a custom
-dark Plotly template (`control_tower` in `app/core.py`).
+A multipage dark "control tower" Streamlit app (`app/streamlit_app.py`, deployed from `main`) reads **only** derived vendor
+scorecards and aggregates committed in `app/data/` (about 0.25 MB; no line-level rows, no raw data).
 
 | Page | What it shows |
 |---|---|
-| Executive summary | business question, KPI cards, GMV vs late GMV by risk tier, recommendations |
-| Data & quality | integrity counts, pipeline graph, all data-quality checks, cleaning decisions |
-| Delivery performance | monthly lateness, hand-off timing vs lateness, lead-time ECDFs, states/categories, GLM odds ratios |
-| Seller scorecards | searchable seller lookup: raw vs shrunk rates, credible + bootstrap intervals, component radar |
-| Risk model & validation | out-of-time AUC/lift vs baselines for two targets, ΔAUC CIs, deciles, back-tests, shrinkage error |
-| Seller archetypes | k-means archetypes in PCA space, centroid heatmap, silhouette/BIC selection |
-| Exposure & scenario simulator | **ASSUMED** cost sliders, exposure ranking and concentration, back-tested reallocation |
+| Executive summary | question, KPI cards, risk tiers by value and late value, recommendations |
+| Data & quality | provenance, pipeline graph, the cleaning log, DQ checks and definitions |
+| Delivery performance | lateness by year, offset distribution, country / mode, R GLM odds ratios and GLMM |
+| Vendor scorecards | searchable vendor lookup: raw vs shrunk rates, credible and bootstrap intervals, component radar, cold-start tier |
+| Risk model & validation | OOT AUC / lift vs baselines for two targets, AUC-difference intervals, quintiles, back-tests, shrinkage error, cold start |
+| Vendor archetypes | k-means archetypes in PCA space, centroid heatmap, silhouette / BIC |
+| Exposure & scenario simulator | **ASSUMED** cost sliders, value-at-risk ranking, concentration, back-tested reallocation |
 | Methodology & limitations | definitions, scoring maths, validation design, caveats |
 
 ```bash
 make app-data        # refresh app/data/ from pipeline outputs
 make app             # http://localhost:8501
 ```
-**Deploy on Streamlit Community Cloud:** main file `app/streamlit_app.py`, Python 3.11; dependencies from
-`app/requirements.txt` (streamlit, pandas, numpy, pyarrow, plotly). Theme: `.streamlit/config.toml`.
+Streamlit Community Cloud: main file `app/streamlit_app.py`, Python 3.11, dependencies from `app/requirements.txt`.
 
 | | |
 |---|---|
 | ![Overview](docs/app_screenshots/01_overview.png) | ![Scorecards](docs/app_screenshots/04_scorecards.png) |
 | ![Validation](docs/app_screenshots/05_validation.png) | ![Simulator](docs/app_screenshots/07_exposure.png) |
 
-All eight page screenshots: [`docs/app_screenshots/`](docs/app_screenshots/).
+All eight page screenshots (captured headlessly with Playwright): [`docs/app_screenshots/`](docs/app_screenshots/).
 
 ---
 
-## 1. Situation & approach
-> **Empirical-Bayes seller scoring to predict dispatch delays across 3,095 Olist sellers**
-
+## 1. Situation and approach
 | | |
 |---|---|
-| **Problem** | 6.8% of 96,470 delivered orders arrived late (reviews 2.27/5 when late vs 4.29 on time). Orders whose seller handed off late were late 21% of the time vs 5.4%. Which sellers (proxies for suppliers) drive delivery risk and working-capital exposure? |
-| **Method** | DuckDB SQL delivery intervals (hand-off vs shipping limit, delivery vs estimate) · beta-binomial empirical-Bayes shrinkage with Bayesian-bootstrap intervals · out-of-time validation vs raw-rate and volume baselines · cold-start policy for new sellers · k-means indicative archetypes · R logistic GLM / GLMM / negative binomial · exposure and ASSUMED reallocation scenarios. |
-| **Decision** | Fix dispatch, not volume: the shrunk hand-off rate predicts next-period hand-off lateness (item AUC 0.704); start SLA reviews with the 69 material High/Elevated sellers; back-tested reallocation (ASSUMED) avoids only 0.29% of late GMV. |
+| **Question** | Which vendors carry the most delivery risk, how sure can we be, and does a score built on the past predict the future? |
+| **Data** | 10,324 order lines, 7,030 shipments, 73 vendor strings (72 external vendors plus the programme's own regional distribution centre, "SCMS from RDC", 52% of lines, scored as a reference channel only), scheduled 2006 to 2015 |
+| **Method** | DuckDB SQL cleaning with a counted log; beta-binomial empirical-Bayes shrinkage; Bayesian-bootstrap intervals; composite score; k-means archetypes; point-in-time out-of-time validation against baselines; New / unscored cold-start tier; R GLM / GLMM / negative binomial; exposure and ASSUMED reallocation scenarios |
+| **Decision** | Monitor the EB-shrunk late rate with its interval; review the 3 High / Elevated vendors with 50+ lines; treat the 43 New / unscored vendors as unknown; do not rely on reallocation until delivery dates are audited |
 
 ## 2. Data
 | | |
 |---|---|
-| Source | [Olist Brazilian E-Commerce](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce) (CC BY-NC-SA 4.0), primary source; the download script uses the Kaggle API when `KAGGLE_USERNAME`/`KAGGLE_KEY` are set and otherwise a verified GitHub mirror - see [data/README.md](data/README.md) |
-| Integrity | orders 99,441 · items 112,650 · sellers 3,095 - all equal to the documented counts; row counts + SHA-256 for all 8 files recorded in `config.yaml` and [data/README.md](data/README.md) and checked on either path |
-| Period | purchases 2016-09-04 to 2018-09-03 |
-| Grain | `fct_items`: one row per order x item (112,650); `fct_orders_delivered`: 96,470 delivered orders; `seller_summary`: 3,095 sellers; `seller_month_panel` |
-| Size | GMV BRL 13.59m, freight BRL 2.25m (16.6% of price) |
-| Concentration | top 10% of sellers = 67.6% of GMV; 1,201 sellers have <5 items |
+| Source | USAID / PEPFAR SCMS Delivery History (file date 2015-09-29), obtained **without credentials** from the Internet Archive snapshot of the original usaid.gov file (`wayback_usaid_original`); the data.usaid.gov export (SSL error) and the usaid.gov original (HTTP 403) failed. Citation, order tried, SHA-256 values and the licence caveat: [data/README.md](data/README.md) |
+| Licence | **unclear**; the raw CSV is git-ignored and fetched by `make data`; only derived vendor scorecards and aggregates are published |
+| Integrity | 10,324 rows x 33 columns, unique `ID`, required columns present, delivery dates 0 unparseable |
+| Size | line value USD 1,627.6m nominal USD; 43 countries; external vendors 4,920 lines (USD 542.2m) |
 
-**Data-quality checks** (`sql/02_data_quality.sql`, counts from `dq_report`): duplicate_order_id = 0, duplicate_item_key = 0, items_orphan_order = 0, items_orphan_seller = 0, orders_without_items = 775, delivered_missing_delivery_ts = 8, missing_approved_ts = 160, missing_carrier_ts = 1,783, carrier_before_purchase = 166, delivered_before_carrier = 23, nonpositive_price = 0, zero_freight = 383, orders_canceled_or_unavailable = 1,234, orders_without_review = 768, products_missing_category = 610.
+**Cleaning log** (`sql/02_cleaning_and_quality.sql`, counts from the data): 6,324 lines have delivered = scheduled
+exactly (86.5% for external vendors; possible back-filling); 2,445 freight values are references to another line
+(resolved at shipment grain through the first line), 1,442 are "included in commodity cost" and
+239 "invoiced separately" (typed, never coerced to 0); 40 lines are capped at
+90 days late for mean-lateness metrics only; 209 shipments have freight above
+2x value (ratio capped); 17 zero-value lines are kept in counts and excluded from ratios;
+3 lines are recorded before delivery; 10 shipments carry two scheduled dates;
+360 missing shipment modes are labelled Unknown. Only delivered lines are present, so late rates are lower bounds.
 
-**Cleaning / definition decisions:** lateness only for delivered orders with a delivery timestamp; late = delivery
-*calendar date* after the estimate; hand-off lateness not judged when the carrier timestamp precedes purchase
-(166 orders); latest review per order; customer data reduced to state; multi-seller
-orders (1.3% of delivered orders) share one delivery timestamp and every seller in them
-inherits it.
-
-**Caveats:** sellers are supplier proxies; Olist's estimated date already embeds regional slack; orders purchased near
-the data end that were not yet delivered cannot be judged (right-censoring); no cost data exists, so all costs are ASSUMED.
-
-## 3. SQL model (DuckDB, ANSI/Postgres-friendly)
+## 3. SQL model (DuckDB)
 | Script | Output |
 |---|---|
-| `01_stage.sql` | typed staging; review de-dup (`ROW_NUMBER`) |
-| `02_data_quality.sql` | `dq_report` (one row per check) |
-| `03_order_intervals.sql` | `fct_items` with approval / hand-off / transit / delivery intervals, late & hand-off flags; `fct_orders_delivered` |
-| `04_seller_summary.sql` | `seller_summary` (counts, GMV, late GMV, freight, reviews, medians) |
-| `05_seller_month_panel.sql` | seller-month panel with rolling 3-month windows, `LAG`, `RANK`, running totals; `platform_month` |
-| `06_oot_features.sql` | point-in-time seller features before `score_end` and next-period outcomes |
+| `01_stage.sql` | typed staging of every raw column used (text kept as typed kinds) |
+| `02_cleaning_and_quality.sql` | `cleaning_log` (counted actions) and `dq_report` |
+| `03_line_intervals.sql` | `fct_shipments`, `fct_lines`: offset, late, days late, severe, exact-match, known date, shipment freight |
+| `04_vendor_summary.sql` | `vendor_lane`, `vendor_summary` |
+| `05_vendor_year_panel.sql` | vendor-year panel with rolling 3-year windows, `LAG`, rank, running totals; `programme_year` |
+| `06_oot_features.sql` | point-in-time vendor features before `score_end` (outcome known before it) and next-period outcomes |
 
-Seller-controlled lateness vs the shipping limit:
-```sql
-DATE_DIFF('second', i.shipping_limit_ts, o.carrier_ts) / 86400.0                    AS handoff_delay_days,
-CASE WHEN o.carrier_ts IS NOT NULL AND o.carrier_ts >= o.purchase_ts
-     THEN o.carrier_ts > i.shipping_limit_ts END                                   AS is_handoff_late,
-CASE WHEN o.order_status = 'delivered' AND o.delivered_ts IS NOT NULL
-     THEN CAST(o.delivered_ts AS DATE) > CAST(o.estimated_ts AS DATE) END          AS is_late
-```
-Rolling seller-month window:
-```sql
-SUM(n_late) OVER w3::DOUBLE / NULLIF(SUM(n_delivered) OVER w3, 0) AS late_rate_roll3
-WINDOW w3 AS (PARTITION BY seller_id ORDER BY purchase_month
-              RANGE BETWEEN INTERVAL 2 MONTH PRECEDING AND CURRENT ROW)
-```
-Point-in-time features (no information from on/after the score date):
-```sql
-SUM(CASE WHEN f.is_late AND f.delivered_ts < p.score_end THEN 1 ELSE 0 END) AS n_late,
-AVG(CASE WHEN f.review_created_ts < p.score_end THEN f.review_score END)    AS mean_review_score
-FROM fct_items f CROSS JOIN params p WHERE f.purchase_ts < p.score_end
-```
+DuckDB runs single-threaded because parallel floating-point `SUM` is not bit-reproducible.
 
-## 4. Python + R
-**Python (`src/supplier_risk`, CLI `supplier-risk sql|train`):**
-* **Empirical-Bayes beta-binomial shrinkage** (`shrinkage.py`): Beta prior fitted by maximum marginal likelihood -
-  late Beta(2.03, 29.05) (mean 6.5%, 31 pseudo-items),
-  hand-off Beta(0.51, 4.06) (mean 11.1%), cancellation
-  Beta(0.11, 8.01); posterior mean (a+k)/(a+b+n) with 90% credible intervals.
-* **Composite risk score** = 100 x Σ w x component percentile, weights documented a priori: late_rate_shrunk 0.35, seller_handoff_late_rate 0.25, review_risk 0.15, cancel_rate 0.1, freight_ratio 0.1, volume_uncertainty 0.05.
-* **Uncertainty:** 200-draw Bayesian bootstrap per seller (Dirichlet-weighted outcomes with
-  the EB prior as pseudo-data). Median 90% interval width: 51 score points for
-  sellers with <20 items vs 24 for >=100 items. (A classical bootstrap gives
-  zero width for sellers with 0 late items - wrong direction.)
-* **Indicative archetypes:** k-means on 7 standardised features for 894 sellers with >=20 items; k in
-  [3, 4, 5, 6, 7] chosen by silhouette (GMM BIC reported alongside). Silhouette is only 0.174, so these are
-  indicative archetypes on a continuum, not separated segments.
-* **Exposure:** GMV at risk, working capital in transit, excess WC from delays (observed) and ASSUMED cost layers.
-* **Out-of-time validation** and **reallocation back-test** (below).
+## 4. Method
+* **Shrinkage.** Beta prior fitted by marginal likelihood across vendors: late Beta(0.69, 21.38) (mean 3.1%,
+  22 pseudo-lines). Median shift in late rate 2.9 points for vendors under 30 lines vs
+  0.2 for 100+; 51 vendors have zero late lines raw and none is scored as exactly zero.
+* **Composite** = percentile-weighted components, scored vendors only (>= 10 lines): late_rate_shrunk 0.4, severe_late_rate_shrunk 0.15, mean_days_late_shrunk 0.15, freight_ratio 0.1, lane_mix_risk 0.15, volume_uncertainty 0.05. Weights are a priori, not tuned. Lane mix is context
+  (leave-one-vendor-out pooled country / mode late rates), not vendor-controlled.
+* **Intervals:** 200 Bayesian-bootstrap draws per vendor (median 90% late-rate interval width 38.5 points under 30 lines vs 14.2 at 100+).
+* **Weight sensitivity** (full-period ranking):
 
-**R (`R/delivery_analysis.R` -> `reports/delivery_report.html`):** logistic GLM for lateness (hand-off, customer &
-seller region, lane, freight, GMV, category, month, year), seller random-intercept GLMM (lme4), negative-binomial
-lead-time model (MASS), KS / Wilcoxon / Kruskal-Wallis lead-time comparisons with ECDFs, calibration, Hosmer-Lemeshow
-and GVIF diagnostics.
+| Weights | Spearman vs base | Top-5 overlap |
+|---|---|---|
+| late_heavy | 0.992 | 100% |
+| tail_heavy | 0.985 | 100% |
+| no_lane_context | 0.973 | 80% |
 
-## 5. Validation, baselines, metrics, sensitivity
-Score sellers using only data observable before **2018-01-01**; evaluate on items purchased
-2018-01-01 -> 2018-09-01. 1,081 sellers evaluated, covering
-75% of next-period items (the rest are new sellers - see the cold-start policy below). Item-level AUC = each
-next-period item inherits its seller's score. Next-period base rates: hand-off late 8.9%,
-late delivery 7.8%.
+## 5. Out-of-time validation
+Features at 2012-01-01 use only lines scheduled before it **and** with delivered and recorded dates before it; outcomes are lines scheduled
+2012-01-01 to 2016-01-01. The main split was fixed from line volume (about half of vendor lines before it) before any metric was computed. 21 of
+24 scored vendors have next-period lines (2,211 lines, 108 late, base rate 4.9%).
 
-| Score | Hand-off: item AUC | seller AUC | Spearman | top-10% lift | Late delivery: item AUC | top-10% lift |
-|---|---|---|---|---|---|---|
-| **EB-shrunk hand-off rate** | 0.704 | 0.771 | 0.456 | 2.26x | 0.522 | 1.06x |
-| **Composite risk score** | 0.666 | 0.701 | 0.344 | 2.36x | 0.536 | 1.21x |
-| EB-shrunk late rate | 0.600 | 0.618 | 0.203 | 2.02x | 0.543 | 1.19x |
-| Baseline: raw hand-off rate | 0.681 | 0.728 | 0.441 | 2.56x | 0.519 | 1.25x |
-| Baseline: raw late rate | 0.582 | 0.579 | 0.180 | 2.17x | 0.539 | 1.22x |
-| Baseline: volume only | 0.521 | 0.491 | -0.071 | 1.30x | 0.497 | 1.01x |
-
-* **Shrinkage vs raw** (hand-off target): ΔAUC +0.023 (seller-cluster
-  bootstrap 95% CI +0.012 to +0.039).
-  Item-weighted MAE vs next-period late rate for sellers with <5 deliveries: raw 0.124 ->
-  shrunk 0.058; for 100+ deliveries 0.041 -> 0.040.
-  The raw hand-off rate has a higher top-10% lift (2.56x vs 2.26x)
-  but its top decile holds less volume, so it captures fewer late items (14.6% vs
-  19.8%).
-* **Composite vs volume-only** (hand-off): ΔAUC +0.145
-  (95% CI +0.080 to +0.232).
-  **Composite vs raw late rate** on end-to-end lateness: ΔAUC -0.002
-  (95% CI -0.013 to +0.010) - no
-  score predicts end-to-end lateness well.
-* **Rolling back-tests** (item AUC):
-
-| Split | Hand-off: EB | Hand-off: raw | Hand-off: composite | Late: composite | Late: raw late rate |
-|---|---|---|---|---|---|
-| 2017-07-01->2018-01-01 | 0.648 | 0.635 | 0.584 | 0.545 | 0.524 |
-| 2017-10-01->2018-04-01 | 0.659 | 0.644 | 0.605 | 0.536 | 0.527 |
-| 2018-01-01->2018-09-01 | 0.704 | 0.681 | 0.666 | 0.536 | 0.539 |
-
-* **Weight sensitivity:**
-
-| Alternative weights | Spearman vs base ranking | top-100 overlap | OOT hand-off AUC | OOT late AUC |
+| Score | Line AUC (late) | Vendor AUC | Top-20% lift | Line AUC (severe, >14 d) |
 |---|---|---|---|---|
-| late_heavy | 0.979 | 88% | 0.651 | 0.540 |
-| handoff_heavy | 0.970 | 86% | 0.689 | 0.532 |
-| balanced_alt | 0.992 | 81% | 0.661 | 0.535 |
+| Composite risk score | 0.704 | 0.762 | 1.12x | 0.658 |
+| EB-shrunk late rate only | 0.738 | 0.810 | 2.42x | 0.707 |
+| Raw late rate (baseline) | 0.730 | 0.786 | 2.42x | 0.686 |
+| Volume only (baseline) | 0.373 | 0.190 | 0.00x | 0.450 |
+| Lane mix only (baseline) | 0.268 | 0.595 | 0.25x | 0.228 |
 
-* **R cross-check:** GLM AUC 0.771 in-sample (0.717 without the hand-off term;
-  LRT p < 0.001); Hosmer-Lemeshow rejects at n = 96,470 (stat 152) though decile
-  gaps are small; max adjusted GVIF 1.67; Poisson dispersion 4.61 -> negative
-  binomial (theta 5.48).
+* **A simple baseline wins.** Composite minus raw-rate AUC is -0.026 (95% vendor-cluster bootstrap CI -0.060 to +0.055);
+  EB rate minus raw rate is +0.007 (CI -0.000 to +0.086). Volume-only and lane-mix-only baselines rank the wrong way (AUC below 0.5).
+* Rolling back-tests (line AUC, late target; each split has 16 to 21 evaluable vendors):
 
-![OOT deciles](docs/figures/oot_deciles.png)
+| Split | Composite | EB late rate | Raw late rate |
+|---|---|---|---|
+| 2009-07-01->2011-07-01 | 0.652 | 0.581 | 0.556 |
+| 2010-07-01->2012-07-01 | 0.527 | 0.589 | 0.570 |
+| 2012-01-01->2016-01-01 | 0.704 | 0.738 | 0.730 |
+| 2013-01-01->2016-01-01 | 0.707 | 0.729 | 0.720 |
 
-**Cold-start policy (new / unscored sellers).** A seller with no sales before the score date has no evidence of its
-own, so it is assigned the empirical-Bayes **prior mean** for every rate (the EB posterior with n = 0), no composite
-percentile, and the tier **New / unscored** (`src/supplier_risk/coldstart.py`). This is material: new sellers were
-22.7%-26.3% of next-period items across the three splits
-(24.8% of items and 29.9% of GMV in the main split,
-1,249 sellers). Out-of-time check of the default:
+  The composite beats the raw rate in 1 of 4 splits.
+* Shrinkage error by history volume (line-weighted MAE of late-rate estimate against next-period rate):
 
-| Split | New sellers | Share of next items | Prior mean hand-off | New sellers' next hand-off late [95% Jeffreys] | Scored sellers | Prior late | New sellers' next late | Hand-off AUC scored only / full coverage |
-|---|---|---|---|---|---|---|---|---|
-| 2017-07-01->2018-01-01 | 762 | 26.3% | 14.7% | 11.1% [10.4%-11.7%] | 9.3% | 3.4% | 7.4% | 0.648 / 0.627 |
-| 2017-10-01->2018-04-01 | 769 | 22.7% | 12.8% | 12.4% [11.7%-13.0%] | 10.6% | 3.5% | 11.9% | 0.659 / 0.638 |
-| 2018-01-01->2018-09-01 | 1,249 | 24.8% | 12.7% | 8.7% [8.2%-9.1%] | 8.9% | 4.5% | 6.4% | 0.704 / 0.666 |
+| Lines in score period | Vendors | Next lines | MAE raw | MAE shrunk |
+|---|---|---|---|---|
+| 1-4 | 7 | 25 | 0.000 | 0.034 |
+| 5-9 | 3 | 12 | 0.094 | 0.080 |
+| 10-29 | 7 | 114 | 0.070 | 0.049 |
+| 30-99 | 8 | 451 | 0.043 | 0.036 |
+| 100+ | 6 | 1646 | 0.050 | 0.049 |
 
-The prior is a **conservative default for dispatch** (new sellers hand off late less often than the prior in every
-split; the prior lies inside the interval in 1 of 3), but it **understates
-end-to-end lateness**, which is calendar/carrier driven rather than a seller trait. Giving all new sellers the same
-default lowers full-coverage hand-off AUC by 0.021-0.038:
-the honest cost of having no history. Operationally: review a new seller's tier once it has its own dispatch record.
+  The 1-4 band has only 25 next-period lines, so a raw rate of 0 can look exact there; the comparison is not informative.
+
+**Cold start (New / unscored).** A vendor below 10 lines at the score date gets the prior mean for every rate, no composite and the tier
+New / unscored (`src/supplier_risk/coldstart.py`). In the main split such vendors were 28 vendors, 16.5% of next-period lines
+and 2.4% of value. Out-of-time check of the default:
+
+| Split | New vendors | Share of next lines | Prior late | New vendors' next late [95% Jeffreys] | Scored vendors' next late | AUC scored only / full coverage |
+|---|---|---|---|---|---|---|
+| 2009-07-01->2011-07-01 | 21 | 13.1% | 2.08% | 2.13% [0.60%-5.57%] | 10.62% | 0.581 / 0.525 |
+| 2010-07-01->2012-07-01 | 18 | 7.8% | 2.59% | 5.00% [1.71%-11.45%] | 11.60% | 0.589 / 0.598 |
+| 2012-01-01->2016-01-01 | 28 | 16.5% | 4.08% | 0.23% [0.02%-1.07%] | 4.88% | 0.738 / 0.762 |
+| 2013-01-01->2016-01-01 | 17 | 18.3% | 3.92% | 0.00% [0.00%-0.64%] | 4.78% | 0.729 / 0.756 |
+
+The prior is inside the interval in 2 of 4 splits and too pessimistic in the main split.
 
 ## 6. Results
-* **Lateness:** 6.8% of delivered orders were late (mean 10.6
-  days late); median lead time 10.2 days. 9.4% of items were
-  handed off after the shipping limit; those orders were late 20.8% of the time vs
-  5.4%.
-* **Seller effect (R):** late hand-off OR **4.95** (95% CI 4.65-5.28);
-  same-state lane OR 0.48; hand-off late lengthens lead time by 65% (NB rate
-  ratio). Seller random-intercept ICC **8.8%** (5.8% once hand-off is
-  controlled): most end-to-end lateness is lane/carrier/calendar driven.
-* **Risk tiers** (full period):
+* **Lateness:** 5.3% of external-vendor lines were late (2.5% more than 14 days; median 13 days late when late,
+  p90 65); late value 10.4% of value. The regional DC was late 17.2% of the time.
+* **R layer:** on 4,920 external-vendor lines (259 late) the vendor random intercept has SD 1.13 (latent ICC **27.8%**, 32.1% without covariates,
+  shipment-grain sensitivity 23.6%; median odds ratio 2.9). The all-lines GLM gives the regional DC odds 8.2x
+  vendor lines (95% CI 6.6-10.3); truck vs air OR 0.22; negative-binomial theta 0.83
+  (Poisson dispersion 26). GLM AUC 0.879 (in-sample). Effects are associations; the Incoterm effect differs in sign between the marginal GLM and the vendor-conditional GLMM, so it is fragile.
+* **Risk tiers** (full period, percentile tiers among 29 scored vendors):
 
-| Tier | Sellers | GMV share | Late-GMV share | Late rate |
+| Tier | Vendors | Value share | Late-value share | Late rate |
 |---|---|---|---|---|
-| High | 310 | 6.5% | 17.5% | 16.7% |
-| Elevated | 309 | 6.0% | 11.0% | 12.0% |
-| Moderate | 929 | 20.5% | 27.5% | 9.0% |
-| Low | 1,547 | 67.1% | 44.1% | 4.3% |
+| High | 3 | 24.4% | 44.7% | 13.9% |
+| Elevated | 3 | 28.7% | 47.6% | 12.4% |
+| Moderate | 9 | 8.5% | 4.4% | 3.2% |
+| Low | 14 | 37.4% | 3.4% | 0.8% |
+| New / unscored | 43 | 1.0% | 0.0% | 0.9% |
 
-  The High tier's median seller has only 4 items. Among **material sellers
-  (>=50 items: 468 sellers, 69% of GMV)**,
-  69 are High/Elevated, holding 7.6% of GMV and
-  13.7% of late GMV. Top material sellers by risk:
+  The 16 vendors with 50+ lines hold 95% of line value.
+* **High / Elevated vendors with 50+ lines:**
 
-| Seller | State | Top category | Items | Late raw | Late EB [90% CrI] | Hand-off EB | Risk [90% boot] | Archetype |
+| Vendor | Top country | Product | Lines | Late raw | Late EB [90%] | Score [90% boot] | Tier | Archetype |
 |---|---|---|---|---|---|---|---|---|
-| `2a1348e9ad…` | MG | furniture_decor | 55 | 29.4% | 20.7% [13.9%-28.5%] | 35.6% | 90.1 [81-91] | Slow dispatchers |
-| `835f0f7810…` | SP | housewares | 50 | 27.1% | 19.0% [12.3%-26.6%] | 67.5% | 88.4 [80-89] | Slow dispatchers |
-| `ede0c03645…` | SP | computers_accessories | 50 | 31.9% | 21.8% [14.6%-29.8%] | 15.9% | 84.8 [73-87] | Slow dispatchers |
-| `b17b679f4f…` | SP | health_beauty | 57 | 15.7% | 12.2% [6.9%-18.6%] | 17.1% | 83.5 [74-86] | Cancellation-prone |
-| `d20b021d3e…` | SP | furniture_decor | 106 | 16.7% | 14.3% [9.6%-19.6%] | 20.9% | 82.8 [75-88] | Slow dispatchers |
-| `855668e097…` | SP | baby | 327 | 12.5% | 12.0% [9.2%-15.0%] | 17.8% | 82.2 [77-83] | Slow dispatchers |
-| `bbad7e518d…` | SP | baby | 85 | 22.6% | 18.3% [12.7%-24.5%] | 44.1% | 82.1 [80-85] | Slow dispatchers |
-| `6973a06f48…` | SP | computers_accessories | 115 | 14.8% | 13.0% [8.6%-17.9%] | 24.5% | 82.0 [77-84] | Cancellation-prone |
+| CIPLA LIMITED | South Africa | ARV | 175 | 13.1% | 12.0% [8.5%-16.0%] | 82.4 [80-86] | High | Chronic late deliverers |
+| Aurobindo Pharma Limited | South Africa | ARV | 668 | 14.1% | 13.7% [11.6%-15.9%] | 76.6 [73-78] | High | Chronic late deliverers |
+| Orgenics, Ltd | Nigeria | HRDT | 754 | 13.0% | 12.7% [10.8%-14.7%] | 69.7 [67-73] | Elevated | Chronic late deliverers |
 
-* **Indicative archetypes** (k = 4, silhouette 0.174 - soft segments on a continuum):
+* **Indicative archetypes** (k = 3, silhouette 0.49, 24 vendors with 20+ lines):
 
-| Archetype | Sellers | GMV share | Median items | Late (EB) | Hand-off late | Review | Freight/price | Cancel | Risk score |
-|---|---|---|---|---|---|---|---|---|---|
-| Slow dispatchers | 144 | 10.5% | 50 | 10.0% | 25.8% | 3.73 | 0.22 | 0.25% | 70 |
-| Cancellation-prone | 34 | 1.6% | 29 | 7.0% | 11.7% | 3.70 | 0.19 | 3.80% | 63 |
-| High-volume core suppliers | 420 | 64.4% | 72 | 5.3% | 4.8% | 4.17 | 0.15 | 0.20% | 34 |
-| Small occasional sellers | 296 | 6.9% | 39 | 4.8% | 3.6% | 4.21 | 0.32 | 0.27% | 33 |
+| Archetype | Vendors | Value share | Median lines | Late (EB) | Mean days late | Freight ratio | Air share | Risk score |
+|---|---|---|---|---|---|---|---|---|
+| Chronic late deliverers | 3 | 51.4% | 668 | 12.7% | 4.35 | 0.056 | 73% | 77 |
+| Air-dependent | 18 | 45.0% | 68 | 1.8% | 0.70 | 0.060 | 100% | 44 |
+| Surface / truck-based | 3 | 2.0% | 326 | 1.6% | 0.35 | 0.067 | 0% | 38 |
 
-* **Exposure:** GMV BRL 13.59m; observed late GMV BRL 986k; GMV at risk BRL 914k (top
-  10% of sellers by this metric = 71%); working capital in transit
-  BRL 407k; excess WC from delays BRL 30k. With **ASSUMED** 5%
-  late cost, 30% freight absorbed and 10% cancellation cost,
-  total exposure = BRL 729k (range BRL 252k-
-  BRL 1.23m over the sensitivity grid); the top risk decile holds only
-  8%-9% of it - **exposure follows GMV, not risk tier**.
-* **Reallocation back-test (ASSUMED):** moving 50% of the top-10% (composite)
-  sellers' next-period volume and closing 50% of the late-rate gap
-  (9.5% vs 8.5% GMV-weighted) avoids
-  BRL 1,282
-  = **0.29% of late GMV**; the most aggressive grid cell (top 20%, all volume, full gap)
-  gives 1.7%. On the seller-controlled leg the base move cuts late hand-offs by
-  4.1%.
+* **Exposure (observed):** line value USD 542.2m, late value USD 56.5m, value at risk (EB late rate x value) USD 40.4m,
+  top 10% of scored vendors hold 95% of it. **ASSUMED** late cost 5% of value and carrying rate
+  10% per year give total exposure USD 2.3m (range USD 933k to USD 4.5m over the sensitivity grid).
+* **Reallocation back-test (ASSUMED):** moving 50% of the volume of the top 20% of vendors (by composite) to the rest, closing 50%
+  of the late-rate gap, avoids 0.0% of next-period late value: the top group's value late rate was 8.8% vs 9.6% for the rest.
+  Ranking by the raw late rate would have avoided 21.9%. The best composite grid cell (top 10%, 100% moved, 100% of gap closed) gives 0.14%.
 
 ![Exposure](docs/figures/exposure_concentration.png)
 
 ## 7. Actions, trade-offs, limitations
-**Actions**
-1. Make the **EB-shrunk hand-off late rate** the supplier SLA KPI (most predictive, least noisy, seller-controlled),
-   reported with its credible interval.
-2. Run dispatch-SLA reviews with the **69 material High/Elevated sellers**, starting with the
-   "Slow dispatchers" indicative archetype; use the composite score for triage context (reviews, cancellations, freight).
-3. Treat low-volume High-tier sellers as an **onboarding watch-list**, not as confirmed bad suppliers.
-4. Address end-to-end lateness through **carrier/lane** management (North/Northeast destinations, peak months),
-   not supplier switching.
+**Actions:** (1) monitor the EB-shrunk late rate with its interval, using the composite for triage and context only; (2) open delivery reviews with the 3 High / Elevated
+vendors that have 50+ lines and ask for root causes by lane; (3) treat the 43 New / unscored vendors as unknown and review each at 10 lines;
+(4) audit the scheduled-date field before using any reallocation result.
 
-**Trade-offs:** stronger shrinkage protects small sellers from noise but is slower to flag a genuinely bad newcomer;
-volume-uncertainty weight pushes unknown sellers up the list (cautious) at the cost of some false alarms; reallocating
-volume concentrates spend in fewer sellers (supply-concentration risk is already 68%
-of GMV in the top 10%).
+**Trade-offs:** stronger shrinkage protects thin vendors from noise but is slower to flag a genuinely bad newcomer; the volume-uncertainty weight pushes unknown vendors up the list at the cost of some false alarms;
+moving volume concentrates spend in fewer vendors.
 
-**Limitations:** sellers are proxies for suppliers; costs and reallocation effects are ASSUMED; scores cover
-75% of next-period items; clusters are weakly separated; multi-seller orders share
-timestamps; GLM/GLMM effects are associations, not causal; data are non-commercial licensed (CC BY-NC-SA 4.0).
+**Limitations:**
+* One programme, one US government buyer, one date definition (delivered vs scheduled); nominal USD 2006-2015.
+* No hand-off timestamp: no vendor-controlled vs end-to-end split. 86.5% of vendor lines have delivered = scheduled exactly, so the on-time rate may be overstated.
+* Small samples: 43 of 72 vendors have under 10 lines and 259 late lines exist in total; only 21 vendors can be validated out-of-time.
+* Predictive validity is modest and a simple baseline wins; the composite weights are a priori and were not tuned.
+* Only delivered lines are in the file; vendor names are used as recorded (spelling variants not merged); clusters are soft; costs and the reallocation effect are ASSUMED.
+* GLM / GLMM effects are associations; the vendor effect partly reflects product, country and period niche.
+* Licence of the source data is unclear; scores are not a statement about any vendor's quality.
 
 ## 8. How to run
 ```bash
 make setup          # Python 3.11 venv + pinned deps (requirements.txt) + package
-make data           # Kaggle API if KAGGLE_USERNAME/KAGGLE_KEY set, else verified mirror; verify rows + SHA-256; parquet
-make sql            # DuckDB model (sql/01-06)
-make train          # scoring, bootstrap, clusters, OOT validation, exposure, scenarios, figures
+make data           # download + verify the SCMS CSV (no credentials); writes data/raw (git-ignored) and data/interim parquet
+make sql            # DuckDB model (sql/01-06), cleaning log
+make train          # scoring, bootstrap, clusters, OOT validation, cold start, exposure, scenarios, figures
 make report         # R GLM/GLMM/NB + Quarto HTML, memo PDF, README, executed notebooks
-make app-data       # export app/data
+make app-data       # export app/data (derived scorecards and aggregates only)
 make test           # ruff + pytest
 make all            # everything above in order
 make app            # Streamlit on :8501
 ```
-Requirements: Python 3.11 (pinned in `requirements.txt` / `requirements-ci.txt`), R >= 4.3 with the packages pinned in
-[`renv.lock`](renv.lock) (restore: `Rscript -e 'install.packages("renv"); renv::restore()'`, see [`R/README.md`](R/README.md)), Quarto >= 1.4 (optional), WeasyPrint for the memo PDF. All parameters live in
-[`config/config.yaml`](config/config.yaml); results are deterministic (seeded).
+Requirements: Python 3.11 (pinned in `requirements.txt` / `requirements-ci.txt`), R >= 4.3 with the packages in [`renv.lock`](renv.lock) (see [`R/README.md`](R/README.md)),
+Quarto >= 1.4 (optional), WeasyPrint for the memo PDF. All parameters live in [`config/config.yaml`](config/config.yaml). Two consecutive runs of sql, train, R and export give byte-identical outputs.
 
-**Tests** (`tests/`): schema, grain uniqueness, null keys, SQL edge cases (same-day delivery, bad clocks, missing
-timestamps, review de-dup, multi-seller orders), **leakage / out-of-time** (mutating post-cutoff data must not change
-features), shrinkage and bootstrap unit tests, metric correctness, scenario logic, real-data metric regression (skipped
-without artifacts) and Streamlit **AppTest** for all eight pages. CI (GitHub Actions) runs ruff + pytest on synthetic
-fixtures.
+**Tests** (`tests/`, no raw data needed): SQL edge cases from a committed handcrafted fixture (date parsing, freight and weight text, see-references, zero / negative values,
+internal-channel flag, exact match, caps), grain and key checks, point-in-time leakage tests, shrinkage and bootstrap unit tests, cold start, metric correctness, scenario logic,
+determinism, data-download verification, repository hygiene, regression on the committed aggregates, and Streamlit **AppTest** for all eight pages. CI runs ruff + pytest on synthetic fixtures.
 
-## License
-Code: MIT ([LICENSE](LICENSE)). Data and derived data: CC BY-NC-SA 4.0 (Olist).
+## Licence
+Code: MIT ([LICENSE](LICENSE)). Data: USAID / PEPFAR SCMS Delivery History, licence unclear; see [data/README.md](data/README.md). Only derived aggregates and vendor scorecards are published.

@@ -1,88 +1,72 @@
-# Procurement Recommendation: Supplier Delivery-Risk & Exposure
+# Procurement memo: delivery-risk scorecard for 72 health-commodity vendors
 
-**To:** Head of Procurement / Marketplace Ops | **From:** Supplier Analytics | **Data:** Olist Brazilian E-Commerce,
-purchases 2016-09-04 to 2018-09-03 (112,650 items, 3,095 sellers). Every figure
-is computed by the pipeline in this repository. **Olist sellers are used as proxies for suppliers.** Items marked
-**ASSUMED** are scenario inputs, not observed results.
+**To:** supply-chain / vendor-management lead  **Basis:** USAID / PEPFAR SCMS Delivery History (file date 2015-09-29),
+10,324 order lines, scheduled 2006 to 2015. Every figure below is read from the pipeline
+outputs. **The buyer is a US government health-supply programme and deliveries go to PEPFAR-supported countries; none is a
+US-domestic delivery.** On time means delivered-to-client date <= scheduled date. **There is no vendor hand-off timestamp**, so
+lateness mixes vendor, freight-forwarder and in-country effects. Scores describe **recorded delivery performance in this programme,
+not overall vendor quality**, and rest on limited samples.
 
-## 1. Empirical-Bayes seller scoring to predict dispatch delays across 3,095 Olist sellers
-**Problem:** 6.8% of delivered orders arrived late; which sellers drive delivery risk and
-working-capital exposure? **Method:** SQL delivery intervals, beta-binomial shrinkage with bootstrap intervals,
-out-of-time validation vs baselines, cold-start policy, indicative archetypes, R GLM/GLMM. **Decision:** fix dispatch,
-not volume (section 6).
+## 1. Situation
+5.3% of 4,920 external-vendor lines were delivered after the scheduled date (2.5%
+more than 14 days late; 10.4% of line value, USD 56.5m of
+USD 542.2m). The programme's own regional distribution centre (not a vendor, 52% of lines) was late
+17.2% of the time. 86.5% of vendor lines have delivered date equal to scheduled date exactly,
+which may reflect back-filled scheduled dates, so the true on-time rate may be lower. Only delivered lines are in the file, so late rates are lower bounds.
 
-## 2. What the data says (observed)
-* **6.8% of 96,470 delivered orders arrived after the promised date**
-  (mean 10.6 days late). Late orders average a 2.27/5 review vs
-  4.29 on time.
-* **The seller-controlled leg matters most.** 9.4% of items were handed to the carrier after
-  the shipping limit; those orders were late 21% of the time vs
-  5.4% otherwise. Controlling for lane, region, category, freight and season, a late
-  hand-off multiplies the odds of a late delivery by **4.95** (95% CI 4.65-
-  5.28; logistic GLM, R).
-* **But end-to-end lateness is mostly not a seller trait.** In a seller random-intercept model only
-  8.8% of latent variance sits between sellers (5.8% after hand-off is
-  controlled). Platform-wide spikes (Nov-2017, Feb-Mar 2018) dominate.
-* **Spend is concentrated:** the top 10% of sellers hold 68% of GMV and
-  71% of GMV-at-risk.
+## 2. Method
+Empirical-Bayes beta-binomial shrinkage of each vendor's late and severe-late rates (prior late rate 3.1%, worth
+22 pseudo-lines), a six-component composite (weights fixed a priori, not tuned), Bayesian-bootstrap intervals,
+a New / unscored cold-start tier for vendors with fewer than 10 lines (43 of
+72 vendors, 2.2% of lines), out-of-time validation (features known before 2012-01-01,
+outcomes 2012-01-01 to 2016-01-01), and R GLM / GLMM / negative-binomial models.
 
-![](figures/handoff_delay_vs_late.png) ![](figures/oot_validation_auc.png)
+## 3. Findings
+* **Concentration.** 29 vendors are scored; the 16 with 50+ lines hold
+  95% of line value. The High tier (3 vendors) holds 24% of value but
+  45% of late value (late rate 13.9%).
+* **Shrinkage matters for thin vendors.** Median shift in late rate 2.9 points for vendors
+  under 30 lines vs 0.2 for 100+; 51 vendors have zero late lines raw
+  but none is scored as exactly zero risk.
+* **Out-of-time validity is modest and fragile.** On 21 evaluable vendors (108 late lines of
+  2,211), line-level AUC is 0.704 for the composite, 0.738 for the EB late rate alone
+  and 0.730 for the raw late rate; volume-only (0.373) and lane-mix-only
+  (0.268) rank the wrong way. **A simple baseline wins:** composite minus raw rate is -0.026
+  (95% CI -0.060 to +0.055). Across four rolling splits the composite beats the raw late rate in
+  1 and loses in 3.
+* **Cold start.** New / thin vendors were 16.5% of next-period lines (main split); their late rate was
+  0.23% (95% Jeffreys 0.02%-1.07%) against an assigned prior of 4.08%, so the
+  prior is too pessimistic there; the assigned prior was inside the interval in 2 of 4 splits.
+* **Archetypes are indicative** (24 vendors, silhouette 0.49):
+  Chronic late deliverers (3 vendors, 51% of value), Air-dependent (18 vendors, 45% of value), Surface / truck-based (3 vendors, 2% of value).
+* **R models.** A vendor random intercept explains a latent 28% of late-delivery variance (32% with no
+  covariates; median odds ratio 2.9); lines from the regional DC have odds 8.2x those of vendor lines
+  (95% CI 6.6-10.3). These are associations; part of the vendor effect is product and country niche.
 
-## 3. Does the score predict next period? (out-of-time, scored at 2018-01-01)
-1,081 sellers scored on pre-2018 data, evaluated on items bought
-2018-01-01 to 2018-09-01 (75% of next-period items).
+| High / Elevated tier vendors with 50+ lines | Top country | Lines | Late (raw) | Late (EB) [90%] | Score [90%] |
+|---|---|---|---|---|---|
+| CIPLA LIMITED | South Africa | 175 | 13.1% | 12.0% [8.5%-16.0%] | 82 [80-86] |
+| Aurobindo Pharma Limited | South Africa | 668 | 14.1% | 13.7% [11.6%-15.9%] | 77 [73-78] |
+| Orgenics, Ltd | Nigeria | 754 | 13.0% | 12.7% [10.8%-14.7%] | 70 [67-73] |
 
-| Score | AUC: next hand-off late | Top-10% lift | AUC: next late delivery |
-|---|---|---|---|
-| EB-shrunk hand-off rate | **0.704** | 2.26x | 0.522 |
-| Composite risk score | 0.666 | 2.36x | 0.536 |
-| Raw hand-off rate (baseline) | 0.681 | 2.56x | 0.519 |
-| Raw late rate (baseline) | 0.582 | 2.17x | 0.539 |
-| Volume only (baseline) | 0.521 | 1.30x | 0.497 |
+![Out-of-time AUC](figures/oot_validation_auc.png) ![Top-risk vendors](figures/top_risk_vendors.png)
 
-* Shrinkage beats the raw rate on hand-off lateness (dAUC +0.023,
-  95% CI +0.012 to +0.039)
-  and halves the error for sellers with <5 deliveries (MAE 0.124 -> 0.058).
-* The riskiest score decile had a next-period hand-off late rate of 21.0% vs
-  2.9% in the safest. **No score predicts end-to-end lateness well** (AUC
-  <= 0.543); it is carrier/lane/calendar driven.
-* **Cold start:** 1,249 new sellers (24.8% of next-period items) had no
-  history; policy assigns the EB prior mean and a **New / unscored** tier. Their next hand-off late rate was
-  8.7% vs a 12.7% prior (conservative for dispatch).
+## 4. Scenario (ASSUMED parameters, not observed)
+ASSUMED: moving 50% of the volume of the top 20% of vendors to the rest and closing
+50% of the late-rate gap; late cost 5% of line value and carrying rate
+10% per year. Value at risk (observed late rate x value, EB-shrunk) is USD 40.4m; ASSUMED-cost exposure
+is USD 2.3m, with the top 10% of scored vendors holding 95% of value at risk. Back-tested on
+the next period, ranking by the composite would have avoided 0.0% of late value (its top group's value late rate
+was 8.8% vs 9.6% for the rest), whereas ranking by the raw late rate would have avoided
+21.9%. This also assumes alternative vendors can supply the same product and country, which is often false for sole-source health commodities.
 
-## 4. Who to act on
-* **69 material sellers (>=50 items) are in the High/Elevated tiers**, holding
-  7.6% of GMV and 13.7% of late GMV. The
-  full High tier (310 sellers) carries 6.5% of GMV but 17.5% of late GMV,
-  yet its median seller has only 4 items - treat these as *unknown*, not *bad*.
-* **"Slow dispatchers" (indicative archetype):** 144 sellers, 10.5% of GMV, median hand-off late rate
-  25.8% vs 4.8% for core suppliers - the priority
-  group for dispatch-SLA conversations. (Indicative only: silhouette 0.174.)
+## 5. Recommendations and trade-offs
+1. **Use the EB-shrunk late rate with its interval as the primary monitoring KPI**; use the composite for triage and context only, because it did not beat it.
+2. **Open delivery-performance reviews with the 3 High / Elevated-tier vendors that have 50+ lines** (table above) and ask for root causes
+   by lane: with no hand-off timestamp the data cannot say whether the vendor or the freight leg is responsible.
+3. **Treat the 43 New / unscored vendors as unknown, not as good**; review each when it reaches 10 lines.
+4. **Do not rely on reallocation until delivery dates are audited** (back-filled dates, undelivered lines absent) and substitutability is confirmed.
 
-![](figures/top_risk_material_sellers.png) ![](figures/seller_archetypes.png)
-
-## 5. Exposure and the reallocation scenario
-* Observed: GMV BRL 13.59m, late GMV BRL 986k, GMV-at-risk BRL 914k, freight
-  BRL 2.25m. Working-capital proxy: BRL 407k of GMV in transit on average; delays add
-  BRL 30k.
-* **ASSUMED** costs (5% of GMV per late item, 30% freight
-  absorbed, 10% per cancellation) give total exposure of
-  BRL 729k - a scenario figure, not a P&L.
-* **Back-tested reallocation (ASSUMED):** moving 50% of the top-10% sellers'
-  next-period volume, closing 50% of the gap, would have avoided only
-  0.29% of late GMV (BRL 1,282); even the most aggressive grid cell
-  (top 20%, all volume, full gap) gives 1.7%. On the seller-controlled leg the same
-  move cuts late hand-offs by 4.1%.
-
-## 6. Recommendations & trade-offs
-1. **Adopt the EB-shrunk hand-off late rate as the supplier SLA KPI**, reviewed monthly with intervals; it is the
-   most predictive, least noisy signal and is what sellers control.
-2. **Run dispatch-SLA reviews with the 69 material High/Elevated sellers**, starting with "Slow dispatchers";
-   use the composite only for triage (it adds review/cancellation/freight context but predicts no better).
-3. **Do not expect volume reallocation to fix customer lateness**; carrier and lane performance (North/Northeast
-   lanes, peak months) need a logistics workstream.
-4. **Onboarding watch-list, not penalties, for low-volume sellers** (1,201 have <5 items).
-
-*Limitations: sellers are marketplace merchants, not contracted suppliers; costs are ASSUMED; scores cover
-75% of next-period items (new sellers unscored); multi-seller orders share timestamps;
-GLM effects are associations. Data: Olist, CC BY-NC-SA 4.0.*
+*Limitations: one programme and one date definition; 43 of 72 vendors have under
+10 lines; 108 late lines drive the main-split metrics; no hand-off split; costs and the reallocation effect are ASSUMED;
+GLM effects are associations. Data: USAID / PEPFAR SCMS Delivery History (licence unclear; only derived aggregates are published).*
