@@ -15,6 +15,11 @@ import streamlit as st
 DATA = Path(__file__).resolve().parent / "data"
 DOCS = Path(__file__).resolve().parents[1] / "docs"
 REPO_URL = "https://github.com/Abhi237/supplier-risk-scoring"
+PROJECT_TITLE = ("Health Supply Vendor Risk - Using empirical-Bayes shrinkage and multilevel models to score on-time "
+                 "delivery risk on USAID / PEPFAR health-commodity order lines")
+SOURCE_CITATION = ("U.S. Agency for International Development (USAID), PEPFAR Supply Chain Management System (SCMS) "
+                   "Delivery History / Supply Chain Shipment Pricing Data, data.usaid.gov (Kaggle copy: "
+                   "divyeshardeshana/supply-chain-shipment-pricing-data)")
 MEMO_URL = f"{REPO_URL}/blob/main/docs/procurement_memo.pdf"
 
 # ---- "Control tower" design language: dark slate base, teal/amber accents, RAG risk palette ----
@@ -104,17 +109,17 @@ def setup_page(title: str, subtitle: str | None = None, section: str = "") -> No
     st.markdown(CSS, unsafe_allow_html=True)
     s = summary()
     q = s["sql_summary"]
-    st.markdown(f"<div class='eyebrow'>SUPPLIER CONTROL TOWER <span>/ {section or 'overview'}</span></div>",
+    st.markdown(f"<div class='eyebrow'>VENDOR CONTROL TOWER <span>/ {section or 'overview'}</span></div>",
                 unsafe_allow_html=True)
     st.title(title)
     if subtitle:
         st.markdown(f"<p class='subtitle'>{subtitle}</p>", unsafe_allow_html=True)
     oot = s["train_summary"]["oot_main"]
     chips = [f"<span class='dot' style='background:{GREEN}'></span>PIPELINE <b>OK</b>",
-             f"WINDOW <b>{q['date_min']} → {q['date_max']}</b>",
-             f"SELLERS <b>{q['n_sellers_active']:,}</b>", f"ITEMS <b>{q['n_items']:,}</b>",
+             f"SCHEDULED <b>{q['scheduled_min'][:4]} to {q['scheduled_max'][:4]}</b>",
+             f"VENDORS <b>{q['ext_vendors']:,}</b>", f"LINES <b>{q['n_lines']:,}</b>",
              f"OOT SCORE DATE <b>{oot['score_end'][:10]}</b>",
-             f"<span class='dot' style='background:{AMBER}'></span>SELLERS = SUPPLIER PROXIES"]
+             f"<span class='dot' style='background:{AMBER}'></span>BUYER = US GOVT HEALTH PROGRAMME · NOT US-DOMESTIC"]
     st.markdown("<div class='statusbar'>" + "".join(f"<span class='chip'>{c}</span>" for c in chips) + "</div>",
                 unsafe_allow_html=True)
 
@@ -154,27 +159,31 @@ def csv(name: str) -> pd.DataFrame:
 
 
 @st.cache_data(show_spinner=False)
-def sellers() -> pd.DataFrame:
-    return pd.read_parquet(DATA / "sellers.parquet")
+def vendors() -> pd.DataFrame:
+    return pd.read_parquet(DATA / "vendors.parquet")
 
 
 @st.cache_data(show_spinner=False)
-def oot_sellers() -> pd.DataFrame:
-    return pd.read_parquet(DATA / "oot_sellers.parquet")
+def oot_vendors() -> pd.DataFrame:
+    return pd.read_parquet(DATA / "oot_vendors.parquet")
 
 
-def brl(x: float) -> str:
+def usd(x: float) -> str:
+    if abs(x) >= 1e9:
+        return f"${x / 1e9:,.2f}bn"
     if abs(x) >= 1e6:
-        return f"R${x / 1e6:,.2f}m"
+        return f"${x / 1e6:,.2f}m"
     if abs(x) >= 1e4:
-        return f"R${x / 1e3:,.0f}k"
-    return f"R${x:,.0f}"
+        return f"${x / 1e3:,.0f}k"
+    return f"${x:,.0f}"
 
 
-def proxy_note() -> None:
-    st.caption("**Methodology note:** Olist marketplace **sellers are used as proxies for suppliers**. "
-               "They are not a buyer's contracted vendors; the method transfers, the specific vendor facts do not.")
+def scope_note() -> None:
+    st.caption("**Scope:** USAID / PEPFAR SCMS delivery history, one programme, scheduled 2006-2015. The buyer is a US "
+               "government health-supply programme and deliveries go to PEPFAR countries (not US-domestic). On time = "
+               "delivered-to-client date <= scheduled date; there is **no vendor hand-off timestamp**, so scores describe "
+               "**recorded delivery performance for this programme, not vendor quality overall**, on limited samples.")
 
 
-TIER_ORDER = ["High", "Elevated", "Moderate", "Low"]
-TIER_COLORS = {"High": RED, "Elevated": AMBER, "Moderate": CYAN, "Low": GREEN}
+TIER_ORDER = ["High", "Elevated", "Moderate", "Low", "New / unscored"]
+TIER_COLORS = {"High": RED, "Elevated": AMBER, "Moderate": CYAN, "Low": GREEN, "New / unscored": GREY}

@@ -1,56 +1,66 @@
 import streamlit as st
-from core import MEMO_URL, REPO_URL, callout, setup_page, summary
+from core import MEMO_URL, REPO_URL, SOURCE_CITATION, callout, csv, setup_page, summary
 
 s = summary()
-t, c = s["train_summary"], s["config"]
-setup_page("Methodology & limitations", "How the scores are built, how they were validated, and what they can't tell you", section="methodology")
-callout("<b>Olist sellers are proxies for suppliers.</b> They are independent marketplace merchants shipping through "
-        "Olist's carrier network, not a buyer's contracted vendors with POs, lead-time contracts or invoices. The "
-        "<i>method</i> (shrunk reliability rates, point-in-time validation, exposure proxies) transfers to real "
-        "procurement data; the vendor-level facts do not.")
+_b = csv("oot_backtest_metrics.csv")
+_b = _b[_b.target.str.startswith("Late")].pivot(index="split", columns="score", values="line_auc")
+_comp_wins = int((_b["Composite risk score (shrunk)"] > _b["Baseline: raw late rate"]).sum())
+t, c, q = s["train_summary"], s["config"], s["sql_summary"]
+setup_page("Methodology & limitations", "How the scores are built, how they were validated, and what they can't tell you",
+           section="methodology")
+callout("<b>Buyer and scope.</b> The buyer is a US government health-supply programme (USAID / PEPFAR SCMS). Commodities (antiretrovirals, "
+        "HIV test kits and a few others) are shipped to PEPFAR-supported countries, mostly in sub-Saharan Africa. These are <b>not</b> US-domestic "
+        "deliveries. Vendors are the real suppliers named in the dataset. Scores describe <b>recorded delivery performance for this programme</b>, "
+        "not vendor quality overall, on limited samples.")
+w = c["scoring"]["weights"]
+pr = t["priors"]
 st.markdown(f"""
 ### Definitions
-| Metric | Definition | Leg |
-|---|---|---|
-| Late delivery | customer delivery date > estimated delivery date (calendar days) | end-to-end |
-| Hand-off late | carrier hand-off timestamp > item `shipping_limit_date` | **seller-controlled** |
-| Cancellation | order status `canceled` / `unavailable` | seller / platform |
-| Freight / price | freight value / item price | cost friction |
-| GMV at risk | GMV × EB-shrunk late rate | exposure |
-| WC in transit | GMV × median delivery days / 365 | working-capital proxy |
+| Metric | Definition |
+|---|---|
+| On time | `Delivered to Client Date` <= `Scheduled Delivery Date` (calendar days) |
+| Late / days late | delivered after scheduled; days late = delivered - scheduled (positive part, capped at {c['cleaning']['days_late_cap']} for means) |
+| Severe late | more than {c['cleaning']['severe_late_days']} days late |
+| Freight ratio | shipment freight (USD, numeric first line only) / shipment line value, capped at {c['cleaning']['freight_ratio_cap']:.0f}x, value-weighted per vendor |
+| Lane mix risk | pooled late rate of the vendor's destination countries and shipment modes (leave-one-vendor-out), line-weighted; context, not vendor-controlled |
+| Value at risk | line value x EB-shrunk late rate |
+| Known date | GREATEST(delivered date, delivery recorded date): when an outcome could be known in the system |
+
+**There is no vendor hand-off timestamp in the dataset**, so the vendor-controlled vs end-to-end split used in the earlier Olist version of this
+project is dropped; lateness mixes vendor, freight-forwarder and in-country effects.
 
 ### Scoring
-* **Empirical-Bayes beta-binomial shrinkage.** For each rate, a Beta(a, b) prior is fitted by maximum marginal
-  likelihood across sellers: late Beta({t['priors']['late'][0]:.2f}, {t['priors']['late'][1]:.2f}) (mean
-  {t['priors']['late'][2]:.1%}, strength {t['priors']['late'][3]:.0f} pseudo-items); hand-off Beta(
-  {t['priors']['handoff'][0]:.2f}, {t['priors']['handoff'][1]:.2f}). Posterior mean = (a + k) / (a + b + n).
-* **Review score** is shrunk toward the population mean with 5 pseudo-reviews.
-* **Composite** = weighted sum of component percentiles × 100. Weights (documented a priori, not tuned):
-  `{c['scoring']['weights']}`. Three alternative weight vectors are reported as a sensitivity check.
-* **Uncertainty:** {c['scoring']['n_bootstrap']} Bayesian-bootstrap draws per seller (Dirichlet-weighted outcomes with
-  the EB prior as pseudo-data) → 5th-95th percentile interval of the score. A classical bootstrap collapses to zero
-  width for sellers with no late items, which is why the Bayesian variant is used.
+* **Population.** {q['ext_vendors']} external vendors. The SCMS regional distribution centre ('{c['cleaning']['internal_channel_vendor']}', {q['rdc_line_share']:.0%} of lines)
+  is the programme's own logistics and is excluded from scoring.
+* **Empirical-Bayes beta-binomial shrinkage.** A Beta(a, b) prior is fitted by maximum marginal likelihood across vendors: late Beta({pr['late'][0]:.2f}, {pr['late'][1]:.2f})
+  (mean {pr['late'][2]:.1%}, strength {pr['late'][3]:.0f} pseudo-lines); severe late Beta({pr['severe'][0]:.2f}, {pr['severe'][1]:.2f}). Posterior mean = (a + k) / (a + b + n).
+  Mean days late and freight ratio are shrunk with pseudo-count priors ({c['scoring']['mean_days_prior_n']} lines, ASSUMED smoothing constant; median vendor shipment value).
+* **Composite** = weighted sum of component percentiles x 100 among scored vendors (>= {c['scoring']['min_lines_for_score']} lines). Weights documented a priori, not tuned:
+  `{w}`. Three alternative weight vectors are a sensitivity check.
+* **Uncertainty:** {c['scoring']['n_bootstrap']} Bayesian-bootstrap draws per scored vendor (Dirichlet-weighted outcomes with the EB prior as pseudo-data; mean days late resampled over
+  the vendor's own lines) give a 5th-95th percentile score interval. A classical bootstrap collapses to zero width for vendors with no late lines.
+* **Cold start:** vendors below {c['scoring']['min_lines_for_score']} lines are New / unscored: prior-mean rates, no composite.
 
 ### Validation (out-of-time)
-* Features at score date T use only items purchased before T **and** outcomes observed before T (deliveries, hand-offs,
-  reviews created before T). Unit tests mutate post-T data and assert features are unchanged.
-* Outcomes: items purchased in [T, T+). Main split T = {c['scoring']['score_period_end']}; rolling splits
+* Features at score date T use lines scheduled before T whose outcome was known before T; lines still unresolved at T are excluded. Outcomes: lines scheduled in [T, T_end).
+  Main split T = {c['scoring']['score_period_end']} to {c['scoring']['validate_period_end']}, fixed from line volume (about half of vendor lines before it) before any metric was run; rolling splits
   {c['scoring']['backtest_splits']}.
-* Metrics: item-level ROC-AUC (each next-period item inherits its seller's score), seller-level AUC, Spearman
-  correlation (sellers with >= 10 next-period items), top-decile lift and capture. Baselines: raw (unshrunk) rates and
-  volume-only. ΔAUC confidence intervals from a seller-cluster bootstrap.
+* Metrics: line-level ROC-AUC (each next-period line inherits its vendor's score), vendor-level AUC, Spearman, top-20% lift and capture. Baselines: raw rate, volume-only, lane-mix-only.
+  AUC differences use a vendor-cluster bootstrap.
 
 ### Limitations
-* **Weak persistence of end-to-end lateness.** Seller scores predict next-period hand-off lateness (AUC ≈ 0.67-0.70)
-  much better than end-to-end lateness (≈ 0.54). Carrier, lane and calendar shocks (e.g. Feb-Mar 2018) dominate.
-* **Clusters are soft** (silhouette {t['clusters']['silhouette']:.2f}).
-* **Costs are ASSUMED.** Exposure in BRL beyond GMV / freight is a scenario, not a P&L.
-* **Survivorship / censoring.** Orders purchased near the data end that were not yet delivered are not judged; sellers
-  new in the next period cannot be scored (coverage {t['oot_main']['next_items_covered_share']:.0%} of next-period items).
-* **Multi-seller orders** share one delivery timestamp ({s['sql_summary']['multi_seller_order_share']:.1%} of orders).
-* **Observational.** GLM odds ratios are associations; a late hand-off may proxy for unobserved capacity issues.
-* **License:** Olist data is CC BY-NC-SA 4.0 (non-commercial, share-alike); derived outputs inherit those terms.
+* **One programme, one definition.** Scheduled 2006-2015, nominal USD, a single US government buyer. {q['ext_exact_match_share']:.0%} of vendor lines have delivered date = scheduled date exactly, so on-time may be overstated
+  if scheduled dates were back-filled.
+* **Small samples.** {q['ext_vendors_lt10_lines']} of {q['ext_vendors']} vendors have fewer than 10 lines; only {t['oot_main']['n_vendors_evaluated']} vendors can be evaluated out-of-time and {int(t['oot_main']['next_late_lines'])} late lines
+  drive the main-split metrics. Intervals are wide and most method differences are not distinguishable from zero.
+* **A simple baseline wins.** In the main split the raw and shrunk late rates rank next-period lateness better than the composite, and across the {len(_b)} rolling splits the composite beats the raw late rate in {_comp_wins}. Volume-only and lane-mix-only baselines rank the wrong way.
+* **Only delivered lines** are in the file; undelivered or cancelled lines are absent, so late rates are lower bounds.
+* **Clusters are soft** (silhouette {t['clusters']['silhouette']:.2f}, {t['clusters']['n_clustered']} vendors).
+* **Costs are ASSUMED.** Exposure beyond observed value and days late is a scenario. The reallocation scenario also assumes other vendors can supply the same product and country, which is often false for sole-source health commodities.
+* **Observational.** GLM odds ratios are associations. The vendor GLMM effect partly reflects product, country and period niche. Lines within a shipment share dates (shipment-grain sensitivity reported).
+* **Vendor names** are used as recorded; spelling variants are not merged. Scores are not a statement about any vendor's quality or ethics.
+* **Licence is unclear;** only derived scorecards and aggregates are published. Source: {SOURCE_CITATION}.
 """)
 
-st.markdown(f"[GitHub repository]({REPO_URL}) · [Procurement memo (PDF)]({MEMO_URL}) · Stack: DuckDB SQL · "
-            "empirical Bayes · scikit-learn · R (GLM, lme4, MASS) · Quarto · Streamlit")
+st.markdown(f"[GitHub repository]({REPO_URL}) · [Procurement memo (PDF)]({MEMO_URL}) · Stack: DuckDB SQL · empirical Bayes · scikit-learn · "
+            "R (GLM, lme4, MASS) · Quarto · Streamlit")

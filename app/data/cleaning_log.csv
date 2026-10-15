@@ -1,0 +1,31 @@
+ord,action,n_rows,base,detail
+1.0,rows_in_raw_file,10324,10324,raw rows read
+2.0,scheduled_date_unparseable,0,10324,scheduled delivery date not a date (e.g. Date Not Captured): would be excluded from on-time
+3.0,delivered_date_unparseable,0,10324,delivered-to-client date not a date: would be excluded from on-time
+4.0,recorded_date_unparseable,0,10324,delivery recorded date not a date
+5.0,po_sent_date_not_captured,328,10324,"procurement date text ""Date Not Captured"" (kept as status; not used for on-time)"
+6.0,po_sent_date_na_from_rdc,5404,10324,"PO date ""N/A - From RDC"": line filled from SCMS regional stock, no PO to a vendor"
+7.0,pq_date_pre_pq_process,2681,10324,"PQ date text ""Pre-PQ Process"" or ""Date Not Captured"" (not used)"
+8.0,ship_mode_na_to_unknown,360,10324,"shipment mode ""N/A"" relabelled Unknown"
+9.0,freight_numeric,6198,10324,freight is a number
+10.0,freight_included_in_commodity_cost,1442,10324,"text: Freight Included in Commodity Cost -> freight unknown (NULL), excluded from freight ratio"
+11.0,freight_invoiced_separately,239,10324,text: Invoiced Separately -> freight unknown (NULL)
+12.0,freight_see_reference,2445,10324,text: See ASN/DN-... (ID#:n) -> freight is carried by the shipment first line; resolved at shipment grain
+13.0,freight_reference_resolves_to_numeric_first_line,2340,2445,see-reference lines whose referenced line is in the same shipment and carries numeric freight
+14.0,freight_negative_set_null,0,6198,negative numeric freight set to NULL
+15.0,freight_zero_numeric_kept,0,6198,numeric freight exactly 0 (kept; ratio 0)
+16.0,weight_numeric,6372,10324,weight is a number
+17.0,weight_captured_separately,1507,10324,text: Weight Captured Separately -> NULL
+18.0,weight_see_reference,2445,10324,text: See ASN/DN-... -> NULL at line level (carried by shipment first line)
+19.0,weight_negative_set_null,0,6372,negative weight set to NULL
+20.0,weight_zero_set_null,1,6372,zero kilograms is not physical -> NULL
+21.0,line_value_negative,0,10324,negative line item value
+22.0,line_value_zero_kept,17,10324,"zero line value kept in counts, excluded from freight / value ratios"
+23.0,duplicate_rows_ignoring_id,1,10324,"groups of rows identical in every column except ID (kept: distinct IDs, plausibly distinct lines)"
+24.0,recorded_before_delivered,3,10324,delivery recorded date earlier than delivered date (kept; recorded lag floored at 0 for point-in-time availability)
+25.0,delivered_equals_scheduled,6324,10324,delivered date equals scheduled date exactly (on time by definition; a large share suggests scheduled dates were back-filled)
+26.0,delivered_more_than_early_threshold_before_schedule,224,10324,delivered more than extreme_early_days before the scheduled date (flag only; on time either way)
+27.0,days_late_capped,40,10324,"days late above the cap, capped for mean-lateness metrics only (is_late flag unchanged)"
+27.5,freight_ratio_capped,209,6198,shipments whose numeric freight exceeds freight_ratio_cap x shipment line value; freight capped at that multiple
+28.0,shipments_with_two_scheduled_dates,10,7030,shipments whose lines carry different scheduled dates (line dates used as given)
+29.0,vendor_names_distinct_as_recorded,73,73,distinct vendor strings; spelling variants (e.g. Abbott / AbbVie entities) are NOT merged

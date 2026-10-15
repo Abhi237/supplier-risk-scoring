@@ -1,84 +1,92 @@
-import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
-from core import GREEN, NAVY, ORANGE, RED, SEQ, SEQ_RISK, csv, proxy_note, setup_page, summary
+from core import GREY, NAVY, ORANGE, RED, SEQ_RISK, TEAL, csv, scope_note, setup_page, summary
 
 s = summary()
-q, r = s["sql_summary"], s.get("r_summary", {})
-setup_page("Delivery performance", "Order-to-delivery intervals: approval → seller hand-off (vs shipping limit) → "
-           "carrier transit → customer delivery (vs estimate)", section="delivery performance")
-proxy_note()
+q, r = s["sql_summary"], s["r_summary"]
+setup_page("Delivery performance", "Delivered-to-client date vs scheduled delivery date · external vendors and the SCMS regional "
+           "distribution centre · logistics lanes and the R statistical layer", section="delivery performance")
+scope_note()
 c = st.columns(4)
-c[0].metric("Median purchase → delivery", f"{q['order_median_delivery_days']:.1f} days")
-c[1].metric("Mean delay when late", f"{q['order_mean_delay_days_when_late']:.1f} days")
-c[2].metric("Review: late vs on time", f"{q['review_late']:.2f} vs {q['review_on_time']:.2f}", "of 5",
+c[0].metric("Vendor late rate", f"{q['ext_late_rate']:.1%}", f"severe (>14 d) {q['ext_severe_late_rate']:.1%}", delta_color="off")
+c[1].metric("Regional DC late rate", f"{q['rdc_late_rate']:.1%}", f"severe {q['rdc_severe_late_rate']:.1%}", delta_color="off")
+c[2].metric("Mean days late (when late)", f"{q['ext_mean_days_late_when_late']:.1f}",
+            f"p90 {q['ext_p90_days_late_when_late']:.0f} days", delta_color="off")
+c[3].metric("Late value share", f"{q['ext_late_value_share']:.1%}", f"{q['ext_late_value_usd'] / 1e6:,.1f}m of {q['ext_value_usd'] / 1e6:,.0f}m USD",
             delta_color="off")
-c[3].metric("Freight / price", f"{q['freight_to_price']:.1%}", help="Total freight over total item price")
 
-pm = csv("platform_month.csv")
-pm["purchase_month"] = pd.to_datetime(pm.purchase_month)
-pm = pm[(pm.purchase_month >= "2017-01-01") & (pm.purchase_month < "2018-09-01")]
+py = csv("programme_year.csv")
 fig = go.Figure()
-fig.add_bar(x=pm.purchase_month, y=pm.n_items, name="items", marker_color="#24324f", yaxis="y2")
-fig.add_scatter(x=pm.purchase_month, y=pm.late_rate, name="late vs estimate", line=dict(color=RED, width=3))
-fig.add_scatter(x=pm.purchase_month, y=pm.handoff_late_rate, name="seller hand-off late", line=dict(color=NAVY, width=3))
-fig.update_layout(title="Monthly lateness by purchase month", height=400, yaxis=dict(tickformat=".0%", title="rate"),
-                  yaxis2=dict(overlaying="y", side="right", showgrid=False, title="items"))
+fig.add_bar(x=py.sched_year, y=py.n_lines_vendor, name="vendor lines (rhs)", marker_color="#24324f", yaxis="y2")
+fig.add_scatter(x=py.sched_year, y=py.n_late_vendor / py.n_lines_vendor, name="late, external vendors", line=dict(color=RED, width=3))
+fig.add_scatter(x=py.sched_year, y=py.n_late_rdc / py.n_lines_rdc.where(py.n_lines_rdc > 0), name="late, SCMS regional DC",
+                line=dict(color=NAVY, width=3))
+fig.add_scatter(x=py.sched_year, y=py.n_exact_vendor / py.n_lines_vendor, name="delivered = scheduled, vendors",
+                line=dict(color=GREY, width=2, dash="dash"))
+fig.update_layout(title="Lateness by scheduled year", height=400, yaxis=dict(tickformat=".0%", title="share of lines"),
+                  yaxis2=dict(overlaying="y", side="right", showgrid=False, title="vendor lines"),
+                  xaxis=dict(dtick=1))
 st.plotly_chart(fig, width="stretch")
-st.caption("End-to-end lateness spikes in Nov-2017 (Black Friday) and Feb-Mar 2018 across the whole platform - a "
-           "calendar/carrier shock no seller-level score can anticipate.")
+_ex = py.n_exact_vendor / py.n_lines_vendor
+_rl = py.n_late_rdc / py.n_lines_rdc.where(py.n_lines_rdc > 0)
+_vl = py.n_late_vendor / py.n_lines_vendor
+st.caption(f"The share of vendor lines whose delivered and scheduled dates are identical is {_ex.min():.0%} to {_ex.max():.0%} by year, so "
+           f"the observable lateness signal is thin and period-dependent. Vendor late rate peaks in {int(py.sched_year[_vl.idxmax()])} "
+           f"({_vl.max():.1%}); the regional DC peaks in {int(py.sched_year[_rl.idxmax()])} ({_rl.max():.1%}).")
 
 c1, c2 = st.columns(2)
 with c1:
-    hb = csv("handoff_buckets.csv")
-    order = ["<-3d", "-3..-1d", "-1..0d", "0..1d", "1..3d", "3..7d", ">7d"]
-    hb = hb[hb.handoff_bucket.isin(order)].set_index("handoff_bucket").reindex(order).reset_index()
-    fig = px.bar(hb, x="handoff_bucket", y="late_rate", text_auto=".0%",
-                 color=hb.handoff_bucket.isin(order[3:]).map({True: "after limit", False: "before limit"}),
-                 color_discrete_map={"after limit": RED, "before limit": GREEN},
-                 labels={"handoff_bucket": "hand-off vs shipping limit", "late_rate": "late-delivery rate", "color": ""})
-    fig.update_layout(title="Seller hand-off timing drives customer lateness", height=380, yaxis_tickformat=".0%")
+    oh = csv("offset_hist.csv")
+    oh["share"] = oh.n / oh.groupby("channel").n.transform("sum")
+    fig = px.bar(oh, x="offset_bin", y="share", color="channel", barmode="group", log_y=True,
+                 color_discrete_sequence=[NAVY, ORANGE],
+                 labels={"offset_bin": "delivered minus scheduled (days, 5-day bins, clipped -60..120)", "share": "share of lines (log)"})
+    fig.update_layout(title="Distribution of days late / early", height=380)
     st.plotly_chart(fig, width="stretch")
 with c2:
-    lh = csv("leadtime_hist.csv")
-    lh["lane"] = lh.same_state.map({True: "same-state lane", False: "cross-state lane"})
-    lh["share"] = lh.n / lh.groupby("lane").n.transform("sum")
-    lh = lh.sort_values("days_bin")
-    lh["ecdf"] = lh.groupby("lane").share.cumsum()
-    fig = px.line(lh, x="days_bin", y="ecdf", color="lane", color_discrete_sequence=[NAVY, ORANGE],
-                  labels={"days_bin": "purchase → delivery (days)", "ecdf": "cumulative share"})
-    fig.update_layout(title="Lead-time ECDF by lane type", height=380)
-    st.plotly_chart(fig, width="stretch")
+    tests = csv("r_offset_tests.csv")
+    t0 = tests[tests.comparison.str.startswith("External vendors")].iloc[0]
+    st.markdown(f"**Vendors vs SCMS regional DC:** late share {t0.share_late_a:.1%} vs {t0.share_late_b:.1%}; KS D = {t0.ks_D:.2f}. "
+                f"In the all-lines GLM the regional DC has odds ratio **{r['or_internal_rdc_vs_vendor']:.1f}** "
+                f"(95% CI {r['or_internal_rdc_lo']:.1f}-{r['or_internal_rdc_hi']:.1f}) of lateness versus vendor lines after controls.")
+    st.dataframe(tests[["comparison", "n_a", "n_b", "share_late_a", "share_late_b", "ks_D", "ks_p", "wilcox_p"]].round(4),
+                 hide_index=True, width="stretch", height=250)
 
-st.subheader("By customer state and category")
-c1, c2 = st.columns(2)
+st.subheader("By country, mode and product group (external vendors)")
+c1, c2 = st.columns([3, 2])
 with c1:
-    cs = csv("customer_state.csv").sort_values("late_rate", ascending=False)
-    fig = px.bar(cs, x="customer_state", y="late_rate", color="median_days", color_continuous_scale=SEQ_RISK,
-                 labels={"customer_state": "customer state", "late_rate": "late rate", "median_days": "median days"})
-    fig.update_layout(height=360, yaxis_tickformat=".0%", title="Late rate by destination state")
+    ct = csv("country.csv")
+    ct["late_rate"] = ct.n_late / ct.n_lines
+    ct = ct[ct.n_lines >= 30].sort_values("late_rate", ascending=False)
+    fig = px.bar(ct, x="country", y="late_rate", color="n_lines", color_continuous_scale=SEQ_RISK,
+                 labels={"country": "", "late_rate": "late rate", "n_lines": "lines"})
+    fig.update_layout(height=380, yaxis_tickformat=".0%", title="Late rate by destination country (>= 30 lines)")
     st.plotly_chart(fig, width="stretch")
 with c2:
-    cat = csv("category.csv").sort_values("late_rate", ascending=False).head(20)
-    fig = px.bar(cat, y="category", x="late_rate", orientation="h", color="freight_to_price",
-                 color_continuous_scale=SEQ, labels={"late_rate": "late rate", "category": ""})
-    fig.update_layout(height=360, xaxis_tickformat=".0%", title="Top-20 categories by late rate (n >= 300)")
+    md = csv("ship_mode.csv")
+    md["late_rate"] = md.n_late / md.n_lines
+    fig = px.bar(md, x="ship_mode", y="late_rate", text=md.n_lines.map(lambda n: f"n={n:,}"), color_discrete_sequence=[TEAL],
+                 labels={"ship_mode": "shipment mode", "late_rate": "late rate"})
+    fig.update_layout(height=380, yaxis_tickformat=".0%", title="Late rate by shipment mode")
     st.plotly_chart(fig, width="stretch")
+pg = csv("product_group.csv")
+pg["late_rate"] = pg.n_late / pg.n_lines
+st.dataframe(pg.round(4), hide_index=True, width="stretch")
 
-if r:
-    st.subheader("R statistical layer (GLM / GLMM / negative binomial)")
-    orr = csv("r_glm_odds_ratios.csv")
-    orr = orr[~orr.term.str.match(r"^(month|year|\(Intercept\))")]
-    fig = go.Figure(go.Scatter(x=orr.estimate, y=orr.term, mode="markers", marker=dict(color=NAVY, size=9),
-                               error_x=dict(type="data", symmetric=False, array=orr["conf.high"] - orr.estimate,
-                                            arrayminus=orr.estimate - orr["conf.low"], color="#9fb0c8")))
-    fig.add_vline(x=1, line_dash="dash", line_color=RED)
-    fig.update_layout(xaxis_type="log", height=560, title="Logistic GLM odds ratios for late delivery (95% CI)",
-                      xaxis_title="odds ratio (log)")
-    st.plotly_chart(fig, width="stretch")
-    st.markdown(f"Hand-off late OR **{r['or_handoff']:.2f}** (95% CI {r['or_handoff_lo']:.2f}-{r['or_handoff_hi']:.2f}); "
-                f"same-state OR {r['or_same_state']:.2f}. In a seller random-intercept GLMM the seller share of latent "
-                f"variance (ICC) is **{r['glmm_icc_without_handoff']:.1%}**, falling to {r['glmm_icc']:.1%} once "
-                f"hand-off lateness is controlled - most end-to-end lateness is not a stable seller trait. "
-                f"Full report: `reports/delivery_report.html`.")
+st.subheader("R statistical layer (GLM / GLMM / negative binomial)")
+orr = csv("r_glm_odds_ratios.csv")
+orr = orr[~orr.term.str.match(r"^(\(Intercept\)|country_g)")]
+fig = go.Figure(go.Scatter(x=orr.estimate, y=orr.term, mode="markers", marker=dict(color=NAVY, size=9),
+                           error_x=dict(type="data", symmetric=False, array=orr["conf.high"] - orr.estimate,
+                                        arrayminus=orr.estimate - orr["conf.low"], color="#9fb0c8")))
+fig.add_vline(x=1, line_dash="dash", line_color=RED)
+fig.update_layout(xaxis_type="log", height=460, title="Logistic GLM odds ratios for late delivery (95% CI; country terms omitted)",
+                  xaxis_title="odds ratio (log)")
+st.plotly_chart(fig, width="stretch")
+st.markdown(f"On {r['n_lines']:,} external-vendor lines ({r['n_late']} late), a vendor random-intercept GLMM on the {r['glmm_n_vendors']} vendors with "
+            f">= 5 lines gives a vendor SD of {r['glmm_vendor_sd']:.2f} on the logit scale (latent ICC **{r['glmm_icc']:.1%}**, "
+            f"{r['glmm_icc_null']:.1%} with no covariates; shipment-grain sensitivity {r['glmm_ship_icc']:.1%}; median odds ratio "
+            f"{r['glmm_mor']:.1f}). A stable vendor-level component is detectable, but it partly reflects each vendor's product, country and period niche. "
+            f"A shifted negative binomial for days late among the {r['nb_n_late_lines']} late lines has theta {r['nb_theta']:.2f} "
+            f"(Poisson dispersion {r['poisson_dispersion']:.0f}). Full report: `reports/delivery_report.html`.")

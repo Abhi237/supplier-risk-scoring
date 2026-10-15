@@ -1,4 +1,4 @@
-weights,spearman_vs_base,top100_overlap
-late_heavy,0.9791081951118799,0.88
-handoff_heavy,0.9696585738986128,0.86
-balanced_alt,0.9915656270728896,0.81
+weights,spearman_vs_base,top5_overlap
+late_heavy,0.9919931017491993,1.0
+tail_heavy,0.9853430300137092,1.0
+no_lane_context,0.9727799063810343,0.8

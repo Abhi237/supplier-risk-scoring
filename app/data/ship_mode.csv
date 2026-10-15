@@ -1,0 +1,6 @@
+ship_mode,n_lines,n_late,n_severe,value_usd
+Air,3568,182,66,404181948.91
+Truck,920,11,3,8911603.99
+Ocean,366,65,52,125891001.49
+Unknown,48,1,1,485302.28
+Air Charter,18,0,0,2742165.67
