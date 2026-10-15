@@ -1,7 +1,7 @@
 ---
-title: "What Drives Late Deliveries? GLM, GLMM and Lead-Time Analysis of Olist Sellers"
-subtitle: "R statistical layer of the Supplier Reliability & Procurement Risk Scoring project (sellers = supplier proxies)"
-author: "Supplier Reliability & Procurement Risk Scoring project"
+title: "What Drives Late Deliveries? GLM, Vendor GLMM and Count Model on USAID / PEPFAR SCMS Order Lines"
+subtitle: "R statistical layer of the Health Supply Vendor Risk project (buyer: a US government health-supply programme; deliveries to PEPFAR countries)"
+author: "Health Supply Vendor Risk project"
 date: today
 format:
   html:
@@ -17,18 +17,23 @@ execute:
 
 ## Question and design
 
-The Python layer ranks sellers by reliability. This report asks a complementary, explanatory question:
-**after controlling for geography, lane, product category, freight and seasonality, how much of a late
-delivery is attributable to the seller?**
+The Python layer ranks vendors by recorded delivery risk. This report asks the explanatory question:
+**after controlling for destination country, shipment mode, product group, contract terms, order size, freight and
+period, how much of whether a line is delivered late is attributable to the vendor?**
 
-* **Unit:** one delivered order (`fct_orders_delivered`, built in `sql/03_order_intervals.sql`).
-* **Outcome:** `late` = customer delivery date after the estimated delivery date shown at purchase.
-* **Seller-controlled leg:** `handoff_late` = carrier hand-off after the item's `shipping_limit_date`.
-* **Olist sellers are proxies for suppliers.** They are marketplace merchants, not a buyer's contracted
-  vendors; findings transfer as *method*, not as vendor facts.
+* **Data:** USAID / PEPFAR Supply Chain Management System (SCMS) delivery history, U.S. Agency for International
+  Development (data.usaid.gov; Kaggle copy "Supply Chain Shipment Pricing Data"). The buyer is a US government program;
+  deliveries go to PEPFAR-supported countries, mostly in sub-Saharan Africa. These are **not** US-domestic deliveries.
+* **Unit:** one order line (`fct_lines`, built in `sql/03_line_intervals.sql`). Population: the external-vendor lines.
+  Lines served from SCMS's own regional distribution centre (vendor string "SCMS from RDC") are not a vendor and are
+  compared separately.
+* **Outcome:** `late` = delivered-to-client date **after** the scheduled delivery date. **The dataset has no separate
+  vendor hand-off timestamp**, so a late line can reflect the vendor, the freight forwarder or in-country handling; the
+  vendor-controlled vs end-to-end split is not observable here.
+* **Scores describe recorded delivery performance for this programme, not vendor quality overall.**
 
-The models are fitted by `R/delivery_analysis.R` (run by `make report` before this document renders);
-this report reads its outputs from `artifacts/r_glm/`.
+The models are fitted by `R/delivery_analysis.R` (run by `make report` before this document renders); this report reads
+its outputs from `artifacts/r_glm/`.
 
 ```{r setup}
 library(readr); library(dplyr); library(knitr); library(jsonlite)
@@ -39,31 +44,38 @@ s <- fromJSON(file.path(out, "r_summary.json"))
 pct <- function(x, d = 1) paste0(formatC(100 * x, format = "f", digits = d), "%")
 ```
 
-`r format(s$n_orders, big.mark = ",")` delivered orders, of which `r pct(s$late_rate)` arrived after the
-estimate.
+`r format(s$n_lines, big.mark = ",")` external-vendor lines from `r s$n_vendors` vendors, of which `r s$n_late`
+(`r pct(s$late_rate)`) were delivered after the scheduled date.
+
+## 0. A data caveat that shapes everything
+
+In the external-vendor lines the delivered date equals the scheduled date exactly for most lines (see the Python
+cleaning log for the count). Lateness is therefore observable only in the minority of lines where the two dates
+differ, and the on-time rate is likely **overstated** if scheduled dates were back-filled with actual dates in some
+records. Also, only delivered lines are in the file: undelivered or cancelled lines are absent.
+
+![](../docs/figures/programme_yearly_lateness.png)
 
 ## 1. Logistic GLM for lateness
 
-$$\text{logit}\,P(\text{late}) = \beta_0 + \beta_1\,\text{handoff\_late} + \text{customer region} +
-\text{seller region} + \text{same state} + \log(1+\text{freight/price}) + \log\text{GMV} +
-\text{category} + \text{month} + \text{year}$$
+$$\text{logit}\,P(\text{late}) = \beta_0 + \text{mode} + \text{product group} + \text{country} + \text{INCO term} +
+\text{period} + \text{std. log value} + \text{log freight ratio} + \text{freight-missing flag} + \log(\text{lines in shipment})$$
 
 ```{r or}
-or <- rd("glm_odds_ratios.csv") %>% filter(!grepl("^month|^year", term))
+or <- rd("glm_odds_ratios.csv")
 kable(or %>% dplyr::select(term, odds_ratio = estimate, conf.low, conf.high, p.value), digits = 3,
-      caption = "Odds ratios (95% Wald CI); month and year fixed effects omitted from the table")
+      caption = "Odds ratios (95% Wald CI). Reference: Air, ARV, South Africa, EXW, 2010-12")
 ```
 
 ![](../docs/figures/r_glm_odds_ratios.png)
 
-**Reading:** a late seller hand-off multiplies the odds of a late customer delivery by
-**`r round(s$or_handoff, 2)`** (95% CI `r round(s$or_handoff_lo, 2)`-`r round(s$or_handoff_hi, 2)`),
-holding lane, category, freight and season fixed. Same-state lanes have odds ratio
-`r round(s$or_same_state, 2)`. Remote customer regions (North, Northeast) carry the largest geographic
-penalties.
+**Reading:** Truck shipments have lower odds of lateness than air (OR `r round(s$or_truck, 2)`), HRDT / other products
+higher than ARVs (OR `r round(s$or_hrdt, 2)`), and shipments with more lines have lower odds (OR `r round(or$estimate[or$term == "log_ship_lines"], 2)` per unit of log lines) - mostly because the many late lines sit in single-line shipments. With only
+`r s$n_late` late lines and many country levels, the country intervals are wide: treat these as associations,
+not effects. Period matters (likelihood-ratio deviance `r round(s$lrt_year_dev, 1)`, p =
+`r format.pval(s$lrt_year_p, digits = 2)`): lateness is not stable over time (see the year terms and the yearly figure above).
 
-Adding `handoff_late` raises in-sample AUC from `r round(s$glm_auc_without_handoff, 3)` to
-`r round(s$glm_auc, 3)` (likelihood-ratio deviance `r round(s$lrt_handoff_dev, 0)`, p < 0.001).
+In-sample AUC is `r round(s$glm_auc, 3)` (not an out-of-time number; the out-of-time validation is in the Python layer).
 
 ### Diagnostics
 
@@ -73,74 +85,82 @@ kable(rd("glm_calibration_deciles.csv"), digits = 4, caption = "Calibration by p
 
 ![](../docs/figures/r_glm_calibration.png)
 
-```{r calstats}
-cd <- rd("glm_calibration_deciles.csv")
-max_dev <- max(abs(cd$observed - cd$mean_pred))
-```
-
-* Hosmer-Lemeshow (10 bins): statistic `r round(s$hosmer_lemeshow_stat, 1)`, p =
-  `r format.pval(s$hosmer_lemeshow_p, digits = 2)`. With ~96k orders this test rejects even small
-  miscalibration: the largest absolute gap between predicted and observed late rate in any decile is
-  `r round(100 * max_dev, 1)` percentage points. The model is used for *explanation*, not as the production score.
-* Collinearity: maximum GVIF^(1/(2·df)) = `r round(s$max_gvif_adj, 2)` (all well below the usual 2-3 concern level).
+* Hosmer-Lemeshow (10 bins): statistic `r round(s$hosmer_lemeshow_stat, 1)`, p = `r format.pval(s$hosmer_lemeshow_p, digits = 2)`.
+* Collinearity: maximum GVIF^(1/(2 df)) = `r round(s$max_gvif_adj, 2)`.
 
 ```{r vif}
 kable(rd("glm_vif.csv"), digits = 2, caption = "Generalised VIFs")
 ```
 
-## 2. How much varies by seller? Random-intercept GLMM
+### SCMS regional distribution centre vs external vendors
 
-Same fixed effects plus a seller random intercept, fitted on `r format(s$glmm_n_orders, big.mark=",")`
-orders from the `r format(s$glmm_n_sellers, big.mark=",")` sellers with at least 5 delivered orders.
+On all lines, controlling for mode, product group, period and order value, lines served from the regional distribution
+centre have odds ratio **`r round(s$or_internal_rdc_vs_vendor, 2)`** (95% CI `r round(s$or_internal_rdc_lo, 2)`-`r round(s$or_internal_rdc_hi, 2)`)
+of being late versus external-vendor lines. That channel is the program's own logistics, not a vendor, which is why it is
+excluded from vendor scoring.
 
-| | seller SD (logit) | latent ICC |
+## 2. How much varies by vendor? Random-intercept GLMM
+
+Vendor random intercept with the same fixed effects (no country terms, to keep the model identifiable with few vendors),
+fitted on `r format(s$glmm_n_lines, big.mark=",")` lines from the `r s$glmm_n_vendors` vendors with at least 5 lines.
+
+| | vendor SD (logit) | latent ICC |
 |---|---|---|
-| without hand-off term | `r round(s$glmm_seller_sd_without_handoff, 3)` | `r pct(s$glmm_icc_without_handoff)` |
-| with hand-off term | `r round(s$glmm_seller_sd, 3)` | `r pct(s$glmm_icc)` |
+| intercept only | `r round(s$glmm_vendor_sd_null, 3)` | `r pct(s$glmm_icc_null)` |
+| with fixed effects | `r round(s$glmm_vendor_sd, 3)` | `r pct(s$glmm_icc)` |
+| shipment-grain sensitivity (one row per shipment) | `r round(s$glmm_ship_vendor_sd, 3)` | `r pct(s$glmm_ship_icc)` |
 
-Only `r pct(s$glmm_icc_without_handoff)` of the latent variance in lateness sits between sellers, and
-about a third of that is explained by their hand-off behaviour. **Most end-to-end lateness is lane,
-carrier and calendar noise, not a stable seller trait** - which is exactly why the Python out-of-time
-validation finds seller-level scores predict next-period *hand-off* lateness far better than next-period
-*end-to-end* lateness.
+The vendor random effect is clearly non-zero (likelihood-ratio statistic `r round(s$glmm_lr_vendor, 1)`, boundary-corrected
+p = `r format.pval(s$glmm_p_vendor_boundary, digits = 2)`), with median odds ratio `r round(s$glmm_mor, 2)` between a typical
+vendor and a vendor one random draw away. Unlike a marketplace with thousands of sellers, here a **stable vendor-level
+component is detectable** - but with 36 vendors this is a variance estimate with wide uncertainty, and part of the
+"vendor" effect is the vendor's product/country/season niche that the covariates only partly absorb.
 
-## 3. Lead time: negative binomial model
+```{r glmm}
+or_re <- rd("glmm_odds_ratios.csv")
+kable(or_re, digits = 3, caption = "GLMM fixed effects, odds ratios (95% Wald CI)")
+```
 
-Delivery lead time (days, rounded) is over-dispersed relative to Poisson (Pearson dispersion
-`r round(s$poisson_dispersion, 2)`), so a negative binomial GLM is used (theta =
-`r round(s$nb_theta, 2)`).
+![](../docs/figures/r_glmm_vendor_effects.png)
+
+## 3. Count model: days late among late lines (negative binomial)
+
+Days late is only defined for late lines (second stage of a hurdle model). We model `days_late - 1 >= 0` with a negative
+binomial (`r s$nb_n_late_lines` late lines). Pearson dispersion under Poisson is `r round(s$poisson_dispersion, 1)` (theta =
+`r round(s$nb_theta, 2)`), so Poisson is clearly inadequate. This ignores zero-truncation beyond the shift and is an
+approximation.
 
 ```{r nb}
-irr <- rd("nb_rate_ratios.csv") %>% filter(!grepl("^month|^year", term))
+irr <- rd("nb_rate_ratios.csv")
 kable(irr %>% dplyr::select(term, rate_ratio = estimate, conf.low, conf.high, p.value), digits = 3,
-      caption = "Lead-time rate ratios (95% CI)")
+      caption = "Days-late rate ratios (95% CI)")
 ```
 
-A late hand-off lengthens expected lead time by `r pct(s$irr_handoff - 1, 0)`; a same-state lane shortens it
-by `r pct(1 - s$irr_same_state, 0)`.
-
-## 4. Lead-time distributions (KS / Wilcoxon, ECDFs)
+## 4. Delivered-minus-scheduled distributions (KS / Wilcoxon, ECDFs)
 
 ```{r tests}
-kable(rd("leadtime_tests.csv"), digits = 4,
-      caption = "Two-sample Kolmogorov-Smirnov and Wilcoxon rank-sum tests on delivery days")
+kable(rd("offset_tests.csv"), digits = 4,
+      caption = "Two-sample Kolmogorov-Smirnov and Wilcoxon rank-sum tests on signed days (delivered - scheduled)")
 ```
 
-Kruskal-Wallis across top categories: H = `r round(s$kruskal_category_H, 1)`, p < 0.001.
+Medians are 0 in every group because most lines are delivered exactly on the scheduled date, so the tests mainly
+compare the tails. Kruskal-Wallis across countries: H = `r round(s$kruskal_country_H, 1)`, p < 0.001.
 
-![](../docs/figures/r_ecdf_leadtime_region.png)
+![](../docs/figures/r_ecdf_offset_mode.png)
 
-![](../docs/figures/r_ecdf_leadtime_category.png)
+![](../docs/figures/r_ecdf_offset_channel.png)
 
 ## Caveats
 
+* One programme, 2006-2015 scheduled dates, nominal USD; results do not transfer to other buyers.
 * Observational data: odds ratios are associations conditional on the covariates, not causal effects.
-  Hand-off lateness may proxy for unobserved seller capacity problems.
-* Multi-seller orders (~1%) share one carrier/delivery timestamp; they are kept with the first seller.
-* Estimated delivery dates are set by Olist and may embed regional slack, which dampens regional effects
-  on *lateness* relative to *lead time*.
+* The delivered/scheduled date definition, the share of exact matches and the absence of undelivered lines
+  limit what "late" means.
+* Lines in a shipment share dates; the shipment-grain GLMM is reported as a sensitivity check.
+* With 259 late lines among 72 vendors, intervals are wide and several coefficients are poorly determined.
 
 ## Reproducibility
 
 `r s$r_version`. Package versions:
-`r paste(names(s$pkg_versions), unlist(s$pkg_versions), collapse = ", ")`. See `R/README.md`.
+`r paste(names(s$pkg_versions), unlist(s$pkg_versions), collapse = ", ")`. Full `sessionInfo()` is in
+`artifacts/r_glm/sessionInfo.txt`. See `R/README.md`.

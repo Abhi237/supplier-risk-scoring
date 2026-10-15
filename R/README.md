@@ -1,30 +1,32 @@
 # R layer
 
-`delivery_analysis.R` fits the logistic GLM, the seller random-intercept GLMM (lme4), the negative-binomial
-lead-time model (MASS) and the KS / Wilcoxon / Kruskal-Wallis comparisons, writing `artifacts/r_glm/` and
-`docs/figures/r_*.png`. `reports/delivery_report.qmd` renders those outputs to HTML.
+`delivery_analysis.R` reads `data/processed/lines_for_r.csv` (all 10,324 lines, written by `make sql` with an explicit `ORDER BY line_id` so results are
+reproducible; the models use the 4,920 external-vendor lines, and one all-lines GLM estimates the regional-DC contrast) and fits:
+
+* a logistic GLM for late delivery (mode, product group, country group, Incoterm, period, log value, log freight ratio plus a freight-missing flag, shipment size),
+  with VIF, a likelihood-ratio test for period, and calibration deciles;
+* a vendor random-intercept GLMM (`lme4`, bobyqa) on vendors with at least 5 lines, a null model for the latent ICC and
+  median odds ratio, and a shipment-grain sensitivity GLMM;
+* a shifted negative binomial (`MASS::glm.nb`) for days late among late lines (days_late - 1);
+* KS, Wilcoxon and Kruskal-Wallis comparisons of signed delivery offsets (air vs truck, ARV vs HRDT, DDP vs EXW, vendors vs the
+  SCMS regional distribution centre, 2013-15 vs 2010-12).
+
+Outputs go to `artifacts/r_glm/` (CSV, `r_summary.json`, `sessionInfo.txt`) and `docs/figures/r_*.png`;
+`reports/delivery_report.qmd` renders them to `reports/delivery_report.html`.
 
 ```bash
-Rscript R/delivery_analysis.R                       # ~8 min (GLMM + NB on 96k orders)
+Rscript R/delivery_analysis.R            # about a minute on 4,920 lines
 cd reports && quarto render delivery_report.qmd --to html
 ```
 
-## Reproducible R environment (`renv.lock`)
+## Reproducible R environment
 
-`renv.lock` at the repository root pins R 4.5.0 and the 96 packages (direct + recursive dependencies) used by
-`R/delivery_analysis.R` and `reports/delivery_report.qmd`: readr, dplyr, tidyr, ggplot2, MASS, lme4, broom, pROC,
-car, jsonlite, knitr, rmarkdown. It was written with `renv::snapshot(packages = ..., force = TRUE)` from the library
-that produced the committed results. Key versions: MASS 7.3-65, lme4 1.1-37, ggplot2 3.5.1, dplyr 1.1.4,
-readr 2.1.5, tidyr 1.3.1, broom 1.0.7, pROC 1.18.5, car 3.1-3, jsonlite 1.9.1, knitr 1.50. Quarto 1.10.19 renders
-the report (Quarto is not an R package, so it is not in the lockfile).
-
-Restore into a project-local library:
+`renv.lock` at the repository root pins R 4.5.0 and the packages used (readr, dplyr, tidyr, ggplot2, MASS, lme4, broom, pROC, car,
+jsonlite, knitr, rmarkdown plus dependencies). The package set of this analysis is the same as the one the lockfile was written
+from, and the versions that produced the committed results match it (for example MASS 7.3-65, lme4 1.1-37, ggplot2 3.5.1,
+dplyr 1.1.4, broom 1.0.7, pROC 1.18.5, car 3.1-3). The lockfile was therefore not re-snapshotted for this branch; the exact session
+is recorded in `artifacts/r_glm/sessionInfo.txt`. Quarto renders the report and is not an R package, so it is not in the lockfile.
 
 ```bash
-Rscript -e 'install.packages("renv", repos = "https://cloud.r-project.org")'
 Rscript -e 'renv::restore(lockfile = "renv.lock", prompt = FALSE)'   # run from the repo root
-Rscript R/delivery_analysis.R
 ```
-
-To refresh the lockfile after upgrading packages:
-`Rscript -e 'renv::snapshot(packages = c("readr","dplyr","ggplot2","MASS","lme4","broom","pROC","tidyr","car","jsonlite","knitr","rmarkdown"), force = TRUE, prompt = FALSE)'`.
